@@ -40,7 +40,7 @@ function SezionePersona({
   return (
     <Box>
       <Typography variant="subtitle1" fontWeight={600} mb={1.5}>{label}</Typography>
-      <Stack direction="row" gap={2} flexWrap="wrap">
+      <Stack direction="row" gap={2.5} flexWrap="wrap">
         <TextField
           label="Cognome" value={value.cognome} required={required}
           onChange={(e) => onChange({ ...value, cognome: e.target.value })}

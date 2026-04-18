@@ -35,12 +35,14 @@ export default function Landing() {
     <Box
       sx={{
         minHeight: '100vh',
+        width: '100vw',
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         p: 2,
+        overflow: 'hidden',
         backgroundImage: `url('${BG_IMAGE}')`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
@@ -94,7 +96,7 @@ export default function Landing() {
             border: '1px solid rgba(255,255,255,0.3)',
           }}
         >
-          <CardContent sx={{ p: 4 }}>
+          <CardContent sx={{ p: { xs: 3, sm: 5 } }}>
             <LoginForm onSuccess={() => navigate('/dashboard')} />
           </CardContent>
         </Card>
@@ -129,8 +131,8 @@ function LoginForm({ onSuccess }: { onSuccess: () => void }) {
   }
 
   return (
-    <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2}>
-      <Typography variant="h6">Accedi al gestionale</Typography>
+    <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2.5}>
+      <Typography variant="h6" fontWeight={700}>Accedi al gestionale</Typography>
       {error && <Alert severity="error">{error}</Alert>}
       <TextField
         label="Email"
@@ -150,7 +152,7 @@ function LoginForm({ onSuccess }: { onSuccess: () => void }) {
         autoComplete="current-password"
         fullWidth
       />
-      <Button type="submit" variant="contained" size="large" disabled={loading} fullWidth>
+      <Button type="submit" variant="contained" size="large" disabled={loading} fullWidth sx={{ mt: 0.5, py: 1.5 }}>
         {loading ? <CircularProgress size={24} color="inherit" /> : 'Entra'}
       </Button>
     </Box>
