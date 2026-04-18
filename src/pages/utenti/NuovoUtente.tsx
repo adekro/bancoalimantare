@@ -258,7 +258,6 @@ export default function NuovoUtente() {
           </Stack>
           </Box>
         </Paper>
-        </Paper>
 
         {/* Sezione: Altri componenti */}
         <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
