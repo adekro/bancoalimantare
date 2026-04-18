@@ -15,10 +15,10 @@ Checklist di sviluppo fase per fase. Spunta ogni voce al completamento.
 - [x] Crea `src/api/supabase.ts` (client Supabase)
 - [x] Crea `.env.local` con `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`
 - [x] Crea `vercel.json` con rewrite SPA
-- [ ] **[MANUALE]** Crea progetto su [dashboard.supabase.com](https://supabase.com/dashboard)
-- [ ] **[MANUALE]** Incolla URL e ANON_KEY in `.env.local`
+- [x] **[MANUALE]** Crea progetto su [dashboard.supabase.com](https://supabase.com/dashboard)
+- [x] **[MANUALE]** Incolla URL e ANON_KEY in `.env.local`
 - [ ] **[MANUALE]** Crea tabelle Supabase (vedere script SQL in `doc/supabase_schema.sql`)
-- [ ] **[MANUALE]** Collega repo GitHub a Vercel con le variabili d'ambiente
+- [x] **[MANUALE]** Collega repo GitHub a Vercel con le variabili d'ambiente
 
 ---
 
