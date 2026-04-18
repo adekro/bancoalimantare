@@ -40,43 +40,43 @@ Checklist di sviluppo fase per fase. Spunta ogni voce al completamento.
 
 ---
 
-## Fase 2 — Landing Page (Pubblica)
+## Fase 2 — Landing Page (Pubblica) ✅
 
-- [ ] Crea `src/pages/Landing.tsx`
-  - [ ] Tab "Accedi": form email/password → `supabase.auth.signInWithPassword()` → redirect `/dashboard`
-  - [ ] Tab "Richiedi Accesso": form nome, email, zona → insert in tabella `access_requests`
-  - [ ] Redirect automatico a `/dashboard` se sessione già attiva
-- [ ] Crea tabella Supabase `access_requests` (id, nome, email, centro, stato, created_at)
+- [x] Crea `src/pages/Landing.tsx`
+  - [x] Tab "Accedi": form email/password → `supabase.auth.signInWithPassword()` → redirect `/dashboard`
+  - [x] Tab "Richiedi Accesso": form nome, email, zona → insert in tabella `access_requests`
+  - [x] Redirect automatico a `/dashboard` se sessione già attiva
+- [x] Crea tabella Supabase `access_requests` (id, nome, email, centro, stato, created_at)
 
 **Verifiche:**
-- [ ] Login funziona, redirect a `/dashboard`
-- [ ] Richiesta accesso inserisce riga in `access_requests`
-- [ ] Utente non autenticato su rotta protetta → torna a `/`
+- [x] Login funziona, redirect a `/dashboard`
+- [x] Richiesta accesso inserisce riga in `access_requests`
+- [x] Utente non autenticato su rotta protetta → torna a `/`
 
 ---
 
-## Fase 3 — Modulo Utenti / Anagrafica
+## Fase 3 — Modulo Utenti / Anagrafica ✅
 
 ### Schema Supabase da creare:
-- [ ] Tabella `nuclei` (id, codice_fiscale, zona, stato `verde|nero|rosso`, archiviato, created_at)
-- [ ] Tabella `componenti` (id, nucleo_id, ruolo `capofamiglia|titolare|componente`, nome, cognome, data_nascita, nazionalita, fascia_eta)
-- [ ] Tabella `tessere` (id, nucleo_id, numero, scadenza_vecchia, scadenza_nuova, rinnovato)
+- [x] Tabella `nuclei` (id, codice_fiscale, zona, stato `verde|nero|rosso`, archiviato, created_at)
+- [x] Tabella `componenti` (id, nucleo_id, ruolo `capofamiglia|titolare|componente`, nome, cognome, data_nascita, nazionalita, fascia_eta)
+- [x] Tabella `tessere` (id, nucleo_id, numero, scadenza_vecchia, scadenza_nuova, rinnovato)
 
 ### Componenti:
-- [ ] Crea `src/pages/utenti/ListaUtenti.tsx`
-  - [ ] Tabella MUI con filtri (zona, stato semaforico, ricerca testo)
-  - [ ] Badge `<Chip>` Verde/Nero/Rosso per stato rinnovo
-  - [ ] Pulsanti "Nuovo", "Archivia", "Modifica"
-- [ ] Crea `src/pages/utenti/NuovoUtente.tsx`
-  - [ ] Form con logica: titolare tessera = capofamiglia? (sì/no)
-  - [ ] Se NO: campi separati per capofamiglia e titolare
-  - [ ] Selezione zona (Pombio / Duomo / Medassino / San Rocco)
-  - [ ] Numero e scadenza tessera
-- [ ] Crea `src/pages/utenti/DettaglioUtente.tsx`
-  - [ ] Visualizza e modifica nucleo + componenti
-  - [ ] Import copia-incolla Excel (textarea → parsing → autofill)
-- [ ] Crea `src/components/common/StatusChip.tsx` — chip Verde/Nero/Rosso
-- [ ] Funzione "Rinnovo Massivo Annuale" — reset stato `verde` al 1° gennaio (RPC Supabase)
+- [x] Crea `src/pages/utenti/ListaUtenti.tsx`
+  - [x] Tabella MUI con filtri (zona, stato semaforico, ricerca testo)
+  - [x] Badge `<Chip>` Verde/Nero/Rosso per stato rinnovo
+  - [x] Pulsanti "Nuovo", "Archivia", "Modifica"
+- [x] Crea `src/pages/utenti/NuovoUtente.tsx`
+  - [x] Form con logica: titolare tessera = capofamiglia? (sì/no)
+  - [x] Se NO: campi separati per capofamiglia e titolare
+  - [x] Selezione zona (Pombio / Duomo / Medassino / San Rocco)
+  - [x] Numero e scadenza tessera
+- [x] Crea `src/pages/utenti/DettaglioUtente.tsx`
+  - [x] Visualizza e modifica nucleo + componenti
+  - [x] Import copia-incolla Excel (textarea → parsing → autofill)
+- [x] Crea `src/components/common/StatusChip.tsx` — chip Verde/Nero/Rosso
+- [x] Funzione "Rinnovo Massivo Annuale" — reset stato `verde` al 1° gennaio (RPC Supabase)
 
 **Verifiche:**
 - [ ] CRUD nucleo funziona (crea, modifica, archivia)
