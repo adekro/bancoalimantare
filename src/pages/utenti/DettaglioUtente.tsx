@@ -327,13 +327,18 @@ export default function DettaglioUtente() {
   return (
     <Box component="form" onSubmit={handleSave}>
       {/* Header */}
-      <Box display="flex" alignItems="center" justifyContent="space-between" mb={3} flexWrap="wrap" gap={2}>
-        <Box display="flex" alignItems="center" gap={1}>
+      <Box display="flex" alignItems="center" justifyContent="space-between" mb={4} flexWrap="wrap" gap={2}>
+        <Box display="flex" alignItems="center" gap={1.5}>
           <IconButton onClick={() => navigate('/utenti')} size="small">
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant="h5">Dettaglio Nucleo</Typography>
-          <StatusChip stato={stato} />
+          <Box>
+            <Box display="flex" alignItems="center" gap={1}>
+              <Typography variant="h4" fontWeight={700} lineHeight={1.2}>Dettaglio Nucleo</Typography>
+              <StatusChip stato={stato} />
+            </Box>
+            <Typography variant="body2" color="text.secondary" mt={0.5}>Modifica i dati del nucleo familiare</Typography>
+          </Box>
         </Box>
         <Stack direction="row" gap={1} flexWrap="wrap">
           <Button
@@ -360,8 +365,11 @@ export default function DettaglioUtente() {
 
       <Stack gap={3}>
         {/* Sezione: Dati nucleo */}
-        <Paper sx={{ p: 3, borderRadius: 2 }}>
-          <Typography variant="h6" mb={2}>Dati nucleo</Typography>
+        <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
+          <Box sx={{ px: 3, py: 1.5, bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider' }}>
+            <Typography variant="subtitle1" fontWeight={700}>Dati nucleo</Typography>
+          </Box>
+          <Box sx={{ p: 3 }}>
           <Stack direction="row" gap={2} flexWrap="wrap">
             <TextField
               label="Codice Fiscale del nucleo"
@@ -385,11 +393,15 @@ export default function DettaglioUtente() {
               {STATI.map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}
             </TextField>
           </Stack>
+          </Box>
         </Paper>
 
         {/* Sezione: Persone */}
-        <Paper sx={{ p: 3, borderRadius: 2 }}>
-          <Typography variant="h6" mb={1}>Capofamiglia e Titolare tessera</Typography>
+        <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
+          <Box sx={{ px: 3, py: 1.5, bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider' }}>
+            <Typography variant="subtitle1" fontWeight={700}>Capofamiglia e Titolare tessera</Typography>
+          </Box>
+          <Box sx={{ p: 3 }}>
           <FormControlLabel
             control={
               <Switch
@@ -414,16 +426,18 @@ export default function DettaglioUtente() {
               </>
             )}
           </Stack>
+          </Box>
         </Paper>
 
         {/* Sezione: Altri componenti */}
-        <Paper sx={{ p: 3, borderRadius: 2 }}>
-          <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-            <Typography variant="h6">Altri componenti del nucleo</Typography>
+        <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
+          <Box sx={{ px: 3, py: 1.5, bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="subtitle1" fontWeight={700}>Altri componenti del nucleo</Typography>
             <Button startIcon={<AddIcon />} onClick={addComponente} size="small">
               Aggiungi
             </Button>
           </Box>
+          <Box sx={{ p: 3 }}>
           {componentiExtra.length === 0 ? (
             <Typography color="text.secondary" variant="body2">
               Nessun altro componente.
@@ -446,11 +460,15 @@ export default function DettaglioUtente() {
               ))}
             </Stack>
           )}
+          </Box>
         </Paper>
 
         {/* Sezione: Tessera */}
-        <Paper sx={{ p: 3, borderRadius: 2 }}>
-          <Typography variant="h6" mb={2}>Tessera</Typography>
+        <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
+          <Box sx={{ px: 3, py: 1.5, bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider' }}>
+            <Typography variant="subtitle1" fontWeight={700}>Tessera</Typography>
+          </Box>
+          <Box sx={{ p: 3 }}>
           <Stack direction="row" gap={2} flexWrap="wrap">
             <TextField
               label="Numero tessera" value={tessNumero}
@@ -470,6 +488,7 @@ export default function DettaglioUtente() {
               sx={{ flex: 1, minWidth: 160 }}
             />
           </Stack>
+          </Box>
         </Paper>
 
         {/* Azioni finali */}

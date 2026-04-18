@@ -4,28 +4,21 @@ import {
   Box,
   Card,
   CardContent,
-  Tabs,
-  Tab,
   TextField,
   Button,
   Typography,
   Alert,
   CircularProgress,
-  MenuItem,
-  Divider,
 } from '@mui/material'
-import FoodBankIcon from '@mui/icons-material/FoodBank'
 import { supabase } from '@/api/supabase'
 import { useAuth } from '@/hooks/useAuth'
 
-const ZONE = ['Pombio', 'Duomo', 'Medassino', 'San Rocco']
+const BG_IMAGE = 'https://images.unsplash.com/photo-1593113598332-cd288d649433?auto=format&fit=crop&w=1920&q=80'
 
 export default function Landing() {
   const { session, loading } = useAuth()
   const navigate = useNavigate()
-  const [tab, setTab] = useState(0)
 
-  // Redirect se già autenticato
   useEffect(() => {
     if (!loading && session) navigate('/dashboard', { replace: true })
   }, [session, loading, navigate])
@@ -42,51 +35,74 @@ export default function Landing() {
     <Box
       sx={{
         minHeight: '100vh',
-        bgcolor: 'primary.dark',
+        position: 'relative',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         p: 2,
+        backgroundImage: `url('${BG_IMAGE}')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(135deg, rgba(10,40,20,0.82) 0%, rgba(0,80,40,0.70) 100%)',
+          zIndex: 0,
+        },
       }}
     >
-      {/* Header */}
-      <Box display="flex" alignItems="center" gap={1.5} mb={4}>
-        <FoodBankIcon sx={{ fontSize: 56, color: '#fff' }} />
-        <Box>
-          <Typography variant="h4" color="#fff" fontWeight={700} lineHeight={1.1}>
-            Banco Alimentare
-          </Typography>
-          <Typography variant="subtitle1" sx={{ color: 'rgba(255,255,255,0.75)' }}>
-            Gestionale Solidale
-          </Typography>
-        </Box>
-      </Box>
-
-      {/* Card */}
-      <Card sx={{ width: '100%', maxWidth: 440, borderRadius: 3, boxShadow: 8 }}>
-        <Tabs
-          value={tab}
-          onChange={(_, v) => setTab(v)}
-          variant="fullWidth"
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
+      <Box
+        sx={{
+          position: 'relative',
+          zIndex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          width: '100%',
+        }}
+      >
+        {/* Titolo */}
+        <Typography
+          variant="h3"
+          fontWeight={800}
+          textAlign="center"
+          letterSpacing={-0.5}
+          sx={{ color: '#fff', mb: 0.5, textShadow: '0 2px 16px rgba(0,0,0,0.4)' }}
         >
-          <Tab label="Accedi" />
-          <Tab label="Richiedi Accesso" />
-        </Tabs>
+          Banco Alimentare
+        </Typography>
+        <Typography
+          variant="h6"
+          fontWeight={400}
+          textAlign="center"
+          sx={{ color: 'rgba(255,255,255,0.75)', mb: 5, textShadow: '0 1px 8px rgba(0,0,0,0.3)' }}
+        >
+          Gestionale Solidale
+        </Typography>
 
-        <CardContent sx={{ p: 3 }}>
-          {tab === 0 ? (
+        {/* Card login */}
+        <Card
+          sx={{
+            width: '100%',
+            maxWidth: 420,
+            borderRadius: 4,
+            boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+            background: 'rgba(255,255,255,0.97)',
+            backdropFilter: 'blur(24px)',
+            border: '1px solid rgba(255,255,255,0.3)',
+          }}
+        >
+          <CardContent sx={{ p: 4 }}>
             <LoginForm onSuccess={() => navigate('/dashboard')} />
-          ) : (
-            <RichiestaAccessoForm />
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', mt: 3 }}>
-        © {new Date().getFullYear()} — Per assistenza contattare l'amministratore
-      </Typography>
+        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.45)', mt: 4 }}>
+          © {new Date().getFullYear()} — Per assistenza contattare l'amministratore
+        </Typography>
+      </Box>
     </Box>
   )
 }
@@ -141,79 +157,4 @@ function LoginForm({ onSuccess }: { onSuccess: () => void }) {
   )
 }
 
-// ---------- Form Richiesta Accesso ----------
 
-function RichiestaAccessoForm() {
-  const [nome, setNome] = useState('')
-  const [email, setEmail] = useState('')
-  const [zona, setZona] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [error, setError] = useState('')
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-    const { error: dbError } = await supabase
-      .from('access_requests')
-      .insert({ nome, email, centro: zona, stato: 'in_attesa' })
-    setLoading(false)
-    if (dbError) {
-      setError('Errore nell\'invio della richiesta. Riprova o contatta l\'amministratore.')
-    } else {
-      setSuccess(true)
-    }
-  }
-
-  if (success) {
-    return (
-      <Box textAlign="center" py={2}>
-        <Alert severity="success" sx={{ mb: 2 }}>
-          Richiesta inviata! L'amministratore creerà il tuo account e ti comunicherà le credenziali.
-        </Alert>
-      </Box>
-    )
-  }
-
-  return (
-    <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2}>
-      <Typography variant="h6">Richiedi Accesso</Typography>
-      <Typography variant="body2" color="text.secondary">
-        Compila il modulo. L'amministratore riceverà la tua richiesta e ti contatterà con le credenziali.
-      </Typography>
-      <Divider />
-      {error && <Alert severity="error">{error}</Alert>}
-      <TextField
-        label="Nome e Cognome"
-        value={nome}
-        onChange={(e) => setNome(e.target.value)}
-        required
-        fullWidth
-      />
-      <TextField
-        label="Email"
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-        fullWidth
-      />
-      <TextField
-        select
-        label="Centro di riferimento"
-        value={zona}
-        onChange={(e) => setZona(e.target.value)}
-        required
-        fullWidth
-      >
-        {ZONE.map((z) => (
-          <MenuItem key={z} value={z}>{z}</MenuItem>
-        ))}
-      </TextField>
-      <Button type="submit" variant="contained" size="large" disabled={loading} fullWidth>
-        {loading ? <CircularProgress size={24} color="inherit" /> : 'Invia Richiesta'}
-      </Button>
-    </Box>
-  )
-}

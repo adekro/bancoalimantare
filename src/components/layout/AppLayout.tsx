@@ -98,13 +98,15 @@ export default function AppLayout() {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: { xs: 2, sm: 3, md: 4 },
           mt: isMobile ? 8 : 0,
           backgroundColor: 'background.default',
           minHeight: '100vh',
         }}
       >
-        <Outlet />
+        <Box sx={{ maxWidth: 1100, mx: 'auto' }}>
+          <Outlet />
+        </Box>
       </Box>
     </Box>
   )

@@ -5,7 +5,6 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Alert, CircularProgress,
   InputAdornment,
 } from '@mui/material'
-import PeopleIcon from '@mui/icons-material/People'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import ArchiveIcon from '@mui/icons-material/Archive'
@@ -120,10 +119,12 @@ export default function ListaUtenti() {
   return (
     <Box>
       {/* Header */}
-      <Box display="flex" alignItems="center" justifyContent="space-between" mb={3} flexWrap="wrap" gap={2}>
-        <Box display="flex" alignItems="center" gap={1}>
-          <PeopleIcon color="primary" sx={{ fontSize: 32 }} />
-          <Typography variant="h5">Nuclei Familiari</Typography>
+      <Box display="flex" alignItems="center" justifyContent="space-between" mb={4} flexWrap="wrap" gap={2}>
+        <Box>
+          <Typography variant="h4" fontWeight={700} lineHeight={1.2}>Nuclei Familiari</Typography>
+          <Typography variant="body2" color="text.secondary" mt={0.5}>
+            {filtered.length} nucleo/i {showArchiviati ? 'archiviati' : 'attivi'}
+          </Typography>
         </Box>
         <Stack direction="row" gap={1} flexWrap="wrap">
           <Button
@@ -148,7 +149,7 @@ export default function ListaUtenti() {
       </Box>
 
       {/* Filtri */}
-      <Stack direction="row" gap={2} mb={3} flexWrap="wrap">
+      <Stack direction="row" gap={1.5} mb={3} flexWrap="wrap">
         <TextField
           placeholder="Cerca nome, CF, tessera…"
           value={search}
@@ -183,12 +184,12 @@ export default function ListaUtenti() {
       {loading ? (
         <Box display="flex" justifyContent="center" py={8}><CircularProgress /></Box>
       ) : (
-        <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3 }}>
           <Table>
             <TableHead>
-              <TableRow sx={{ bgcolor: 'primary.main' }}>
+              <TableRow sx={{ bgcolor: 'grey.50' }}>
                 {['Nominativo', 'Cod. Fiscale', 'Zona', 'N° Tessera', 'Stato', 'Azioni'].map((h) => (
-                  <TableCell key={h} sx={{ color: '#fff', fontWeight: 700 }}>{h}</TableCell>
+                  <TableCell key={h} sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</TableCell>
                 ))}
               </TableRow>
             </TableHead>
@@ -231,9 +232,7 @@ export default function ListaUtenti() {
         </TableContainer>
       )}
 
-      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-        {filtered.length} nucleo/i {showArchiviati ? 'archiviati' : 'attivi'}
-      </Typography>
+
 
       {/* Dialog archivia/ripristina */}
       <Dialog open={!!archivioId} onClose={() => setArchivioId(null)}>
