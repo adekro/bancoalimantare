@@ -17,26 +17,26 @@ Checklist di sviluppo fase per fase. Spunta ogni voce al completamento.
 - [x] Crea `vercel.json` con rewrite SPA
 - [x] **[MANUALE]** Crea progetto su [dashboard.supabase.com](https://supabase.com/dashboard)
 - [x] **[MANUALE]** Incolla URL e ANON_KEY in `.env.local`
-- [ ] **[MANUALE]** Crea tabelle Supabase (vedere script SQL in `doc/supabase_schema.sql`)
+- [x] **[MANUALE]** Crea tabelle Supabase (vedere script SQL in `doc/supabase_schema.sql`)
 - [x] **[MANUALE]** Collega repo GitHub a Vercel con le variabili d'ambiente
 
 ---
 
 ## Fase 1 — Tema, Layout e Routing
 
-- [ ] Crea `src/theme.ts` — tema MUI (colori, font leggibili per utenti 70+)
-- [ ] Crea `src/hooks/useAuth.ts` — context Supabase Auth (`session`, `user`, `signOut`)
-- [ ] Crea `src/components/common/ProtectedRoute.tsx` — redirect a `/` se non autenticato
-- [ ] Crea `src/router.tsx` — rotte con `createBrowserRouter` + `RouterProvider`
-- [ ] Aggiorna `src/App.tsx` — usa `RouterProvider`
-- [ ] Crea `src/components/layout/AppLayout.tsx` — `Box` flex con Drawer + `<Outlet>`
-- [ ] Crea `src/components/layout/Sidebar.tsx` — Drawer con `ListItemButton` e `useNavigate`
-- [ ] Crea `src/pages/Dashboard.tsx` — placeholder dashboard
+- [x] Crea `src/theme.ts` — tema MUI (colori, font leggibili per utenti 70+)
+- [x] Crea `src/hooks/useAuth.ts` — context Supabase Auth (`session`, `user`, `signOut`)
+- [x] Crea `src/components/common/ProtectedRoute.tsx` — redirect a `/` se non autenticato
+- [x] Crea `src/router.tsx` — rotte con `createBrowserRouter` + `RouterProvider`
+- [x] Aggiorna `src/App.tsx` — usa `RouterProvider`
+- [x] Crea `src/components/layout/AppLayout.tsx` — `Box` flex con Drawer + `<Outlet>`
+- [x] Crea `src/components/layout/Sidebar.tsx` — Drawer con `ListItemButton` e `useNavigate`
+- [x] Crea `src/pages/Dashboard.tsx` — placeholder dashboard
 
 **Verifiche:**
-- [ ] `npm run dev` compila senza errori TypeScript
-- [ ] Navigazione sidebar porta alla rotta corretta
-- [ ] Redirect a `/` se non autenticato
+- [x] `npm run dev` compila senza errori TypeScript
+- [x] Navigazione sidebar porta alla rotta corretta
+- [x] Redirect a `/` se non autenticato
 
 ---
 

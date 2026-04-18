@@ -157,7 +157,7 @@ function RichiestaAccessoForm() {
     setLoading(true)
     const { error: dbError } = await supabase
       .from('access_requests')
-      .insert({ nome, email, centro: zona, stato: 'pending' })
+      .insert({ nome, email, centro: zona, stato: 'in_attesa' })
     setLoading(false)
     if (dbError) {
       setError('Errore nell\'invio della richiesta. Riprova o contatta l\'amministratore.')
