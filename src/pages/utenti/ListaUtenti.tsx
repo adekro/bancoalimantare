@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, type MouseEvent } from 'react'
 import {
   Box, Typography, Button, TextField, MenuItem, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Paper, IconButton, Tooltip, Stack, Card,
   Dialog, DialogTitle, DialogContent, DialogActions, Alert, CircularProgress,
-  InputAdornment, Chip, Pagination,
+  InputAdornment, Chip, Pagination, Menu,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
@@ -17,6 +17,12 @@ import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutli
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
 import MapOutlinedIcon from '@mui/icons-material/MapOutlined'
 import TuneIcon from '@mui/icons-material/Tune'
+import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined'
+import BadgeIcon from '@mui/icons-material/Badge'
+import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined'
+import CreditCardOutlinedIcon from '@mui/icons-material/CreditCardOutlined'
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/api/supabase'
 import type { StatoNucleo } from '@/components/common/StatusChip'
@@ -30,7 +36,14 @@ const STATO_FILTER = [
 ]
 const PAGE_SIZE = 10
 
-type Componente = { id: string; ruolo: string; nome: string; cognome: string }
+type Componente = {
+  id: string
+  ruolo: string
+  nome: string
+  cognome: string
+  data_nascita: string | null
+  nazionalita: string | null
+}
 type Tessera    = { id: string; numero: string; scadenza_nuova: string | null }
 type Nucleo = {
   id: string
@@ -41,6 +54,11 @@ type Nucleo = {
   created_at: string
   componenti: Componente[]
   tessere: Tessera[]
+}
+
+type StatoMenuAnchor = {
+  nucleoId: string
+  anchorEl: HTMLElement
 }
 
 function getNomePrincipale(componenti: Componente[]) {
@@ -83,6 +101,29 @@ function renderInlineStatus(stato: StatoNucleo) {
   return { label: 'Sospeso', color: '#b3261e' }
 }
 
+function birthYear(value: string | null | undefined) {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return String(date.getFullYear())
+}
+
+function sortByOlderFirst(a: Componente, b: Componente) {
+  const aDate = a.data_nascita ? new Date(a.data_nascita).getTime() : Number.POSITIVE_INFINITY
+  const bDate = b.data_nascita ? new Date(b.data_nascita).getTime() : Number.POSITIVE_INFINITY
+  return aDate - bDate
+}
+
+function isCapofamigliaTitolare(componenti: Componente[]) {
+  const capo = componenti.find((c) => c.ruolo === 'capofamiglia')
+  const titolare = componenti.find((c) => c.ruolo === 'titolare')
+  if (!capo) return false
+  if (!titolare) return true
+  const capoKey = `${capo.nome}|${capo.cognome}|${capo.data_nascita ?? ''}`.toLowerCase()
+  const titolareKey = `${titolare.nome}|${titolare.cognome}|${titolare.data_nascita ?? ''}`.toLowerCase()
+  return capo.id === titolare.id || capoKey === titolareKey
+}
+
 function matchSearch(n: Nucleo, q: string) {
   const low = q.toLowerCase()
   if (n.codice_fiscale?.toLowerCase().includes(low)) return true
@@ -108,6 +149,10 @@ export default function ListaUtenti() {
   const [rinnovoLoading, setRinnovoLoading] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
   const [page, setPage] = useState(1)
+  const [azioniAnchorEl, setAzioniAnchorEl] = useState<HTMLElement | null>(null)
+  const [statoMenu, setStatoMenu] = useState<StatoMenuAnchor | null>(null)
+  const [statoUpdatingId, setStatoUpdatingId] = useState<string | null>(null)
+  const [expandedNucleoId, setExpandedNucleoId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -174,6 +219,58 @@ export default function ListaUtenti() {
     }
   }
 
+  const openStatoMenu = (event: MouseEvent<HTMLElement>, nucleoId: string) => {
+    setStatoMenu({ nucleoId, anchorEl: event.currentTarget })
+  }
+
+  const closeStatoMenu = () => {
+    setStatoMenu(null)
+  }
+
+  const handleStatoChange = async (nuovoStato: StatoNucleo) => {
+    if (!statoMenu) return
+    const id = statoMenu.nucleoId
+    closeStatoMenu()
+    setStatoUpdatingId(id)
+    const { error: err } = await supabase
+      .from('nuclei')
+      .update({ stato: nuovoStato })
+      .eq('id', id)
+    setStatoUpdatingId(null)
+    if (err) {
+      setError(err.message)
+      return
+    }
+    setSuccessMsg('Stato nucleo aggiornato con successo.')
+    load()
+  }
+
+  const toggleExpandNucleo = (id: string) => {
+    setExpandedNucleoId((current) => (current === id ? null : id))
+  }
+
+  const openAzioniMenu = (event: MouseEvent<HTMLElement>) => {
+    setAzioniAnchorEl(event.currentTarget)
+  }
+
+  const closeAzioniMenu = () => {
+    setAzioniAnchorEl(null)
+  }
+
+  const handleAzioneCopiaIncolla = () => {
+    closeAzioniMenu()
+    setSuccessMsg('La funzione di import rapido e disponibile nella pagina di dettaglio nucleo.')
+  }
+
+  const handleAzioneRinnovo = () => {
+    closeAzioniMenu()
+    setRinnovoOpen(true)
+  }
+
+  const statoMenuCurrent = statoMenu
+    ? nuclei.find((n) => n.id === statoMenu.nucleoId)?.stato ?? null
+    : null
+
   return (
     <Box>
       {/* Header */}
@@ -206,15 +303,6 @@ export default function ListaUtenti() {
           }}
         >
           <Button
-            variant="outlined"
-            startIcon={<ContentPasteIcon />}
-            onClick={() => setSuccessMsg('La funzione di import rapido e disponibile nella pagina di dettaglio nucleo.')}
-            size="small"
-            sx={{ minHeight: 34, px: 1.3, fontSize: '0.9rem', m: 0.25 }}
-          >
-            Copia-incolla da Excel
-          </Button>
-          <Button
             size="small"
             variant="contained"
             startIcon={<AddIcon />}
@@ -226,12 +314,11 @@ export default function ListaUtenti() {
           <Button
             size="small"
             variant="outlined"
-            color="warning"
-            startIcon={<AutorenewIcon />}
-            onClick={() => setRinnovoOpen(true)}
+            onClick={openAzioniMenu}
+            endIcon={azioniAnchorEl ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
             sx={{ minHeight: 34, px: 1.3, fontSize: '0.9rem', m: 0.25 }}
           >
-            Rinnovo Annuale
+            Azioni
           </Button>
         </Stack>
       </Box>
@@ -374,6 +461,10 @@ export default function ListaUtenti() {
                   const nome = getNomePrincipale(n.componenti)
                   const scadenza = n.tessere[0]?.scadenza_nuova ?? null
                   const status = renderInlineStatus(n.stato)
+                  const componentiOrdinati = [...n.componenti].sort(sortByOlderFirst)
+                  const capoCoincideConTitolare = isCapofamigliaTitolare(n.componenti)
+                  const isExpanded = expandedNucleoId === n.id
+                  const isUpdating = statoUpdatingId === n.id
                   return (
                   <TableRow key={n.id} hover>
                     <TableCell>
@@ -396,9 +487,55 @@ export default function ListaUtenti() {
                         </Box>
                         <Box>
                           <Typography sx={{ fontWeight: 700, lineHeight: 1.2 }}>{nome}</Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          <Stack direction="row" spacing={0.7} sx={{ alignItems: 'center' }}>
+                            <Tooltip
+                              title={capoCoincideConTitolare
+                                ? 'Capofamiglia coincidente con titolare tessera'
+                                : 'Capofamiglia diverso da titolare tessera'}
+                            >
+                              {capoCoincideConTitolare ? (
+                                <BadgeIcon sx={{ fontSize: 16, color: 'success.main' }} />
+                              ) : (
+                                <BadgeOutlinedIcon sx={{ fontSize: 16, color: 'warning.main' }} />
+                              )}
+                            </Tooltip>
+                            <Typography variant="caption" color="text.secondary">
+                              {capoCoincideConTitolare ? 'Capofamiglia = Titolare' : 'Capofamiglia distinto dal titolare'}
+                            </Typography>
+                          </Stack>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            onClick={() => toggleExpandNucleo(n.id)}
+                            sx={{ cursor: 'pointer', textDecoration: 'underline dotted' }}
+                          >
                             Nucleo: {Math.max(n.componenti.length, 1)} persone
                           </Typography>
+                          {isExpanded && (
+                            <Stack spacing={0.45} sx={{ mt: 0.8 }}>
+                              {componentiOrdinati.length === 0 ? (
+                                <Typography variant="caption" color="text.secondary">Nessun componente disponibile</Typography>
+                              ) : (
+                                componentiOrdinati.map((c) => (
+                                  <Stack key={c.id} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                                    {c.ruolo === 'capofamiglia' && (
+                                      <Tooltip title="Capofamiglia">
+                                        <CreditCardOutlinedIcon sx={{ fontSize: 14, color: 'primary.main' }} />
+                                      </Tooltip>
+                                    )}
+                                    {(c.ruolo === 'titolare' || (c.ruolo === 'capofamiglia' && !n.componenti.some((p) => p.ruolo === 'titolare'))) && (
+                                      <Tooltip title="Titolare tessera">
+                                        <HomeOutlinedIcon sx={{ fontSize: 14, color: 'success.dark' }} />
+                                      </Tooltip>
+                                    )}
+                                    <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.3 }}>
+                                      {`${c.nome} ${c.cognome}`.trim()} - {birthYear(c.data_nascita)} - {c.nazionalita || '—'}
+                                    </Typography>
+                                  </Stack>
+                                ))
+                              )}
+                            </Stack>
+                          )}
                         </Box>
                       </Stack>
                     </TableCell>
@@ -409,11 +546,24 @@ export default function ListaUtenti() {
                       {formatDate(scadenza)}
                     </TableCell>
                     <TableCell>
-                      <Stack direction="row" spacing={0.8} sx={{ alignItems: 'center' }}>
+                      <Stack
+                        direction="row"
+                        spacing={0.8}
+                        onClick={(event) => !isUpdating && openStatoMenu(event, n.id)}
+                        sx={{
+                          alignItems: 'center',
+                          cursor: isUpdating ? 'default' : 'pointer',
+                          opacity: isUpdating ? 0.7 : 1,
+                        }}
+                      >
                         <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: status.color }} />
-                        <Typography variant="body2" sx={{ color: status.color, fontWeight: 700 }}>
-                          {status.label}
-                        </Typography>
+                        {isUpdating ? (
+                          <CircularProgress size={14} />
+                        ) : (
+                          <Typography variant="body2" sx={{ color: status.color, fontWeight: 700 }}>
+                            {status.label}
+                          </Typography>
+                        )}
                       </Stack>
                     </TableCell>
                     <TableCell>
@@ -466,7 +616,43 @@ export default function ListaUtenti() {
 
 
 
+      <Menu
+        anchorEl={azioniAnchorEl}
+        open={!!azioniAnchorEl}
+        onClose={closeAzioniMenu}
+      >
+        <MenuItem onClick={handleAzioneCopiaIncolla}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <ContentPasteIcon fontSize="small" />
+            <Typography variant="body2">Copia-incolla da Excel</Typography>
+          </Stack>
+        </MenuItem>
+        <MenuItem onClick={handleAzioneRinnovo}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <AutorenewIcon fontSize="small" />
+            <Typography variant="body2">Rinnovo Annuale</Typography>
+          </Stack>
+        </MenuItem>
+      </Menu>
+
+      <Menu
+        anchorEl={statoMenu?.anchorEl ?? null}
+        open={!!statoMenu}
+        onClose={closeStatoMenu}
+      >
+        {STATO_FILTER.filter((item) => item.value).map((item) => (
+          <MenuItem
+            key={item.value}
+            selected={statoMenuCurrent === item.value}
+            onClick={() => handleStatoChange(item.value as StatoNucleo)}
+          >
+            {item.label}
+          </MenuItem>
+        ))}
+      </Menu>
+
       {/* Dialog archivia/ripristina */}
+
       <Dialog open={!!archivioId} onClose={() => setArchivioId(null)}>
         <DialogTitle>{showArchiviati ? 'Ripristina nucleo' : 'Archivia nucleo'}</DialogTitle>
         <DialogContent>
