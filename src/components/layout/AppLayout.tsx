@@ -7,11 +7,19 @@ import {
   Toolbar,
   IconButton,
   Typography,
+  TextField,
+  InputAdornment,
+  Avatar,
+  Stack,
   useMediaQuery,
   useTheme,
 } from '@mui/material'
 import MenuIcon from '@mui/icons-material/Menu'
+import SearchIcon from '@mui/icons-material/Search'
+import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined'
+import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined'
 import Sidebar from './Sidebar'
+import { useAuth } from '@/hooks/useAuth'
 
 const DRAWER_WIDTH = 240
 
@@ -21,6 +29,7 @@ export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+  const { user } = useAuth()
 
   // Ricava il titolo della pagina dalla rotta corrente
   const pageTitle: Record<string, string> = {
@@ -33,19 +42,21 @@ export default function AppLayout() {
   const title = pageTitle[location.pathname] ?? 'Gestionale Solidale'
 
   const handleDrawerToggle = () => setMobileOpen((prev) => !prev)
+  const userName = user?.email?.split('@')[0] ?? 'Admin'
   void navigate // usato da Sidebar, qui solo per evitare warning
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: 'background.default' }}>
       {/* AppBar visibile solo su mobile */}
       {isMobile && (
         <AppBar
           position="fixed"
-          sx={{ zIndex: theme.zIndex.drawer + 1 }}
+          sx={{ zIndex: theme.zIndex.drawer + 1, bgcolor: '#ffffff', color: 'text.primary' }}
+          elevation={0}
         >
           <Toolbar>
             <IconButton
-              color="inherit"
+              color="default"
               aria-label="apri menu"
               edge="start"
               onClick={handleDrawerToggle}
@@ -98,13 +109,55 @@ export default function AppLayout() {
         component="main"
         sx={{
           flexGrow: 1,
-          p: { xs: 2, sm: 3, md: 4 },
+          px: { xs: 2, sm: 3, md: 4 },
+          pb: { xs: 3, sm: 4, md: 5 },
           mt: isMobile ? 8 : 0,
           backgroundColor: 'background.default',
           minHeight: '100vh',
         }}
       >
-        <Box sx={{ maxWidth: 1100, mx: 'auto' }}>
+        {!isMobile && (
+          <Box
+            sx={{
+              height: 74,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+              mb: 3,
+            }}
+          >
+            <TextField
+              size="small"
+              placeholder="Cerca per CF, nominativo o tessera..."
+              sx={{ minWidth: 280, width: '42%', '& .MuiInputBase-root': { bgcolor: '#ffffff' } }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <IconButton color="default" aria-label="notifiche">
+                <NotificationsNoneOutlinedIcon />
+              </IconButton>
+              <IconButton color="default" aria-label="attivita recenti">
+                <HistoryOutlinedIcon />
+              </IconButton>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ pl: 1 }}>
+                <Typography variant="body2" fontWeight={700}>{userName}</Typography>
+                <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: 14 }}>
+                  {userName.slice(0, 1).toUpperCase()}
+                </Avatar>
+              </Stack>
+            </Stack>
+          </Box>
+        )}
+
+        <Box sx={{ maxWidth: 1240, mx: 'auto' }}>
           <Outlet />
         </Box>
       </Box>

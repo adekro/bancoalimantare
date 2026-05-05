@@ -9,10 +9,14 @@ import SaveIcon from '@mui/icons-material/Save'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import TableRowsIcon from '@mui/icons-material/TableRows'
+import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined'
+import Groups2OutlinedIcon from '@mui/icons-material/Groups2Outlined'
+import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '@/api/supabase'
 import StatusChip from '@/components/common/StatusChip'
 import type { StatoNucleo } from '@/components/common/StatusChip'
+import NationalityAutocomplete from '@/components/common/NationalityAutocomplete'
 
 const ZONE = ['Pombio', 'Duomo', 'Medassino', 'San Rocco']
 const STATI: { value: StatoNucleo; label: string }[] = [
@@ -76,8 +80,8 @@ function SezionePersona({
 }) {
   return (
     <Box>
-      {label && <Typography variant="subtitle1" fontWeight={600} mb={1.5}>{label}</Typography>}
-      <Stack direction="row" gap={2.5} flexWrap="wrap">
+      {label && <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>{label}</Typography>}
+      <Stack direction="row" sx={{ gap: 2.5, flexWrap: 'wrap' }}>
         <TextField
           label="Cognome" value={value.cognome} required
           onChange={(e) => onChange({ ...value, cognome: e.target.value })}
@@ -91,12 +95,13 @@ function SezionePersona({
         <TextField
           label="Data di nascita" type="date" value={value.data_nascita}
           onChange={(e) => onChange({ ...value, data_nascita: e.target.value })}
-          InputLabelProps={{ shrink: true }}
+          slotProps={{ inputLabel: { shrink: true } }}
           sx={{ flex: 1, minWidth: 160 }}
         />
-        <TextField
-          label="Nazionalità" value={value.nazionalita}
-          onChange={(e) => onChange({ ...value, nazionalita: e.target.value })}
+        <NationalityAutocomplete
+          value={value.nazionalita}
+          onChange={(newValue) => onChange({ ...value, nazionalita: newValue })}
+          label="Nazionalita"
           sx={{ flex: 1, minWidth: 160 }}
         />
       </Stack>
@@ -318,7 +323,7 @@ export default function DettaglioUtente() {
 
   if (pageLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="40vh">
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '40vh' }}>
         <CircularProgress />
       </Box>
     )
@@ -326,27 +331,36 @@ export default function DettaglioUtente() {
 
   return (
     <Box component="form" onSubmit={handleSave}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+        Utenti &gt; Modifica Nucleo Familiare
+      </Typography>
+
       {/* Header */}
-      <Box display="flex" alignItems="center" justifyContent="space-between" mb={4} flexWrap="wrap" gap={2}>
-        <Box display="flex" alignItems="center" gap={1.5}>
-          <IconButton onClick={() => navigate('/utenti')} size="small">
-            <ArrowBackIcon />
-          </IconButton>
-          <Box>
-            <Box display="flex" alignItems="center" gap={1}>
-              <Typography variant="h4" fontWeight={700} lineHeight={1.2}>Dettaglio Nucleo</Typography>
-              <StatusChip stato={stato} />
-            </Box>
-            <Typography variant="body2" color="text.secondary" mt={0.5}>Modifica i dati del nucleo familiare</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3.2, flexWrap: 'wrap', gap: 2 }}>
+        <Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h4" sx={{ fontWeight: 800, lineHeight: 1.1 }}>Anagrafica Nucleo</Typography>
+            <StatusChip stato={stato} />
           </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Modifica dati e composizione del nucleo assistito.
+          </Typography>
         </Box>
-        <Stack direction="row" gap={1} flexWrap="wrap">
+        <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
           <Button
             variant="outlined"
             startIcon={<TableRowsIcon />}
             onClick={() => setExcelOpen(true)}
           >
-            Importa da Excel
+            Copia-incolla da Excel
+          </Button>
+          <Button
+            variant="text"
+            color="inherit"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate('/utenti')}
+          >
+            Annulla
           </Button>
           <Button
             type="submit"
@@ -355,7 +369,7 @@ export default function DettaglioUtente() {
             disabled={saving}
             sx={{ minWidth: 130 }}
           >
-            {saving ? <CircularProgress size={20} color="inherit" /> : 'Salva'}
+            {saving ? <CircularProgress size={20} color="inherit" /> : 'Salva Nucleo'}
           </Button>
         </Stack>
       </Box>
@@ -363,67 +377,121 @@ export default function DettaglioUtente() {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {successMsg && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccessMsg('')}>{successMsg}</Alert>}
 
-      <Stack gap={3}>
+      <Stack sx={{ gap: 3.4 }}>
         {/* Sezione: Dati nucleo */}
-        <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
-          <Box sx={{ px: 3, py: 1.5, bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider' }}>
-            <Typography variant="subtitle1" fontWeight={700}>Dati nucleo</Typography>
+        <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden', mt: 0.4 }}>
+          <Box sx={{ px: 3, py: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
+            <BadgeOutlinedIcon color="success" fontSize="small" />
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>Identificazione Nucleo</Typography>
           </Box>
-          <Box sx={{ p: 3 }}>
-          <Stack direction="row" gap={2} flexWrap="wrap">
-            <TextField
-              label="Codice Fiscale del nucleo"
-              value={cf}
-              onChange={(e) => setCf(e.target.value.toUpperCase())}
-              inputProps={{ maxLength: 16 }}
-              sx={{ flex: 1, minWidth: 200 }}
-            />
-            <TextField
-              select label="Zona" value={zona}
-              onChange={(e) => setZona(e.target.value)}
-              required sx={{ flex: 1, minWidth: 180 }}
-            >
-              {ZONE.map((z) => <MenuItem key={z} value={z}>{z}</MenuItem>)}
-            </TextField>
-            <TextField
-              select label="Stato" value={stato}
-              onChange={(e) => setStato(e.target.value as StatoNucleo)}
-              sx={{ flex: 1, minWidth: 180 }}
-            >
-              {STATI.map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}
-            </TextField>
+          <Box sx={{ p: { xs: 2.6, md: 3.2 } }}>
+          <Stack sx={{ gap: 2.2 }}>
+            <Stack direction="row" sx={{ gap: 2.2, flexWrap: 'wrap' }}>
+              <TextField
+                label="Codice Fiscale del nucleo"
+                value={cf}
+                onChange={(e) => setCf(e.target.value.toUpperCase())}
+                slotProps={{ htmlInput: { maxLength: 16 } }}
+                sx={{ flex: 1, minWidth: 220 }}
+              />
+              <TextField
+                select label="Zona" value={zona}
+                onChange={(e) => setZona(e.target.value)}
+                required sx={{ flex: 1, minWidth: 220 }}
+              >
+                {ZONE.map((z) => <MenuItem key={z} value={z}>{z}</MenuItem>)}
+              </TextField>
+              <TextField
+                select label="Stato" value={stato}
+                onChange={(e) => setStato(e.target.value as StatoNucleo)}
+                sx={{ flex: 1, minWidth: 220 }}
+              >
+                {STATI.map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}
+              </TextField>
+            </Stack>
+            <Stack direction="row" sx={{ gap: 2.2, flexWrap: 'wrap' }}>
+              <TextField
+                label="Numero tessera" value={tessNumero}
+                onChange={(e) => setTessNumero(e.target.value)}
+                sx={{ flex: 1, minWidth: 220 }}
+              />
+              <TextField
+                label="Scadenza precedente" type="date" value={tessScadVecchia}
+                onChange={(e) => setTessScadVecchia(e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
+                sx={{
+                  flex: 1,
+                  minWidth: 220,
+                  '& input': { fontSize: '0.97rem' },
+                  '& .MuiInputLabel-root': { px: 0.35, bgcolor: 'background.paper' },
+                }}
+              />
+              <TextField
+                label="Scadenza nuova" type="date" value={tessScadNuova}
+                onChange={(e) => setTessScadNuova(e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
+                sx={{
+                  flex: 1,
+                  minWidth: 220,
+                  '& input': { fontSize: '0.97rem' },
+                  '& .MuiInputLabel-root': { px: 0.35, bgcolor: 'background.paper' },
+                }}
+              />
+            </Stack>
           </Stack>
           </Box>
         </Paper>
 
         {/* Sezione: Persone */}
         <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
-          <Box sx={{ px: 3, py: 1.5, bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider' }}>
-            <Typography variant="subtitle1" fontWeight={700}>Capofamiglia e Titolare tessera</Typography>
-          </Box>
-          <Box sx={{ p: 3 }}>
-          <FormControlLabel
-            control={
+          <Box
+            sx={{
+              px: 3,
+              py: 2,
+              borderBottom: 1,
+              borderColor: 'divider',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 1,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Groups2OutlinedIcon color="success" fontSize="small" />
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>Titolare e Capofamiglia</Typography>
+            </Box>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">Titolare coincide con Capofamiglia</Typography>
               <Switch
                 checked={stessoSoggetto}
                 onChange={(e) => setStessoSoggetto(e.target.checked)}
               />
-            }
-            label="Il titolare della tessera coincide con il capofamiglia"
-            sx={{ mb: 2 }}
-          />
-          <Divider sx={{ mb: 2 }} />
-          <Stack gap={3}>
+            </Stack>
+          </Box>
+          <Box sx={{ p: 3 }}>
+          <Stack sx={{ gap: 3 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 0.8, fontWeight: 700 }}>
+              DATI TITOLARE
+            </Typography>
             <SezionePersona
               value={capofamiglia}
               onChange={setCapofamiglia}
-              label={stessoSoggetto ? 'Capofamiglia (= Titolare tessera)' : 'Capofamiglia'}
+              label=""
             />
             {!stessoSoggetto && (
               <>
                 <Divider />
-                <SezionePersona value={titolare} onChange={setTitolare} label="Titolare tessera" />
+                <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 0.8, fontWeight: 700 }}>
+                  DATI CAPOFAMIGLIA
+                </Typography>
+                <SezionePersona value={titolare} onChange={setTitolare} label="" />
               </>
+            )}
+            {stessoSoggetto && (
+              <Typography variant="caption" color="text.secondary">
+                I dati del capofamiglia coincidono con quelli del titolare.
+              </Typography>
             )}
           </Stack>
           </Box>
@@ -431,8 +499,11 @@ export default function DettaglioUtente() {
 
         {/* Sezione: Altri componenti */}
         <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
-          <Box sx={{ px: 3, py: 1.5, bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="subtitle1" fontWeight={700}>Altri componenti del nucleo</Typography>
+          <Box sx={{ px: 3, py: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <HomeOutlinedIcon color="success" fontSize="small" />
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>Componenti del Nucleo</Typography>
+            </Box>
             <Button startIcon={<AddIcon />} onClick={addComponente} size="small">
               Aggiungi
             </Button>
@@ -443,10 +514,10 @@ export default function DettaglioUtente() {
               Nessun altro componente.
             </Typography>
           ) : (
-            <Stack gap={3}>
+            <Stack sx={{ gap: 3 }}>
               {componentiExtra.map((c, i) => (
                 <Box key={i}>
-                  <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                     <Typography variant="subtitle2" color="text.secondary">Componente {i + 1}</Typography>
                     <Tooltip title="Rimuovi">
                       <IconButton size="small" color="error" onClick={() => removeComponente(i)}>
@@ -463,50 +534,13 @@ export default function DettaglioUtente() {
           </Box>
         </Paper>
 
-        {/* Sezione: Tessera */}
-        <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
-          <Box sx={{ px: 3, py: 1.5, bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider' }}>
-            <Typography variant="subtitle1" fontWeight={700}>Tessera</Typography>
-          </Box>
-          <Box sx={{ p: 3 }}>
-          <Stack direction="row" gap={2} flexWrap="wrap">
-            <TextField
-              label="Numero tessera" value={tessNumero}
-              onChange={(e) => setTessNumero(e.target.value)}
-              sx={{ flex: 1, minWidth: 160 }}
-            />
-            <TextField
-              label="Scadenza precedente" type="date" value={tessScadVecchia}
-              onChange={(e) => setTessScadVecchia(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              sx={{ flex: 1, minWidth: 160 }}
-            />
-            <TextField
-              label="Scadenza nuova" type="date" value={tessScadNuova}
-              onChange={(e) => setTessScadNuova(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              sx={{ flex: 1, minWidth: 160 }}
-            />
-          </Stack>
-          </Box>
-        </Paper>
-
-        {/* Azioni finali */}
-        <Box display="flex" gap={2} justifyContent="flex-end">
-          <Button variant="outlined" onClick={() => navigate('/utenti')} disabled={saving}>
-            Torna alla lista
-          </Button>
-          <Button type="submit" variant="contained" startIcon={<SaveIcon />} disabled={saving} sx={{ minWidth: 130 }}>
-            {saving ? <CircularProgress size={20} color="inherit" /> : 'Salva'}
-          </Button>
-        </Box>
       </Stack>
 
       {/* Dialog import Excel */}
       <Dialog open={excelOpen} onClose={() => setExcelOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>Importa componenti da Excel</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" mb={2}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Copia le celle da Excel e incollale qui sotto. Il formato atteso è:
             <br />
             <strong>Cognome [TAB] Nome [TAB] Data nascita [TAB] Nazionalità</strong>

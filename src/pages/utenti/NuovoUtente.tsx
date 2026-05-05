@@ -1,13 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Box, Typography, Button, TextField, MenuItem, Paper, Stack,
-  Alert, CircularProgress, Divider, Switch, FormControlLabel, IconButton, Tooltip,
+  Alert, CircularProgress, Divider, Switch, IconButton, Tooltip,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
+import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined'
+import Groups2OutlinedIcon from '@mui/icons-material/Groups2Outlined'
+import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/api/supabase'
+import NationalityAutocomplete from '@/components/common/NationalityAutocomplete'
 
 const ZONE = ['Pombio', 'Duomo', 'Medassino', 'San Rocco']
 
@@ -39,8 +43,8 @@ function SezionePersona({
 }) {
   return (
     <Box>
-      <Typography variant="subtitle1" fontWeight={600} mb={1.5}>{label}</Typography>
-      <Stack direction="row" gap={2.5} flexWrap="wrap">
+      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>{label}</Typography>
+      <Stack direction="row" sx={{ gap: 2.5, flexWrap: 'wrap' }}>
         <TextField
           label="Cognome" value={value.cognome} required={required}
           onChange={(e) => onChange({ ...value, cognome: e.target.value })}
@@ -54,12 +58,13 @@ function SezionePersona({
         <TextField
           label="Data di nascita" type="date" value={value.data_nascita}
           onChange={(e) => onChange({ ...value, data_nascita: e.target.value })}
-          InputLabelProps={{ shrink: true }}
+          slotProps={{ inputLabel: { shrink: true } }}
           sx={{ flex: 1, minWidth: 160 }}
         />
-        <TextField
-          label="Nazionalità" value={value.nazionalita}
-          onChange={(e) => onChange({ ...value, nazionalita: e.target.value })}
+        <NationalityAutocomplete
+          value={value.nazionalita}
+          onChange={(newValue) => onChange({ ...value, nazionalita: newValue })}
+          label="Nazionalita"
           sx={{ flex: 1, minWidth: 160 }}
         />
       </Stack>
@@ -72,6 +77,7 @@ export default function NuovoUtente() {
   const navigate = useNavigate()
   const [cf, setCf] = useState('')
   const [zona, setZona] = useState('')
+  const [indirizzo, setIndirizzo] = useState('')
   const [stessoSoggetto, setStessoSoggetto] = useState(true)
   const [capofamiglia, setCapofamiglia] = useState<PersonaForm>({ ...PERSONA_VUOTA })
   const [titolare, setTitolare] = useState<PersonaForm>({ ...PERSONA_VUOTA })
@@ -81,6 +87,12 @@ export default function NuovoUtente() {
   const [tessScadNuova, setTessScadNuova] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (stessoSoggetto) {
+      setTitolare({ ...capofamiglia })
+    }
+  }, [stessoSoggetto, capofamiglia])
 
   const addComponente = () => setComponentiExtra((prev) => [...prev, { ...PERSONA_VUOTA }])
 
@@ -182,78 +194,155 @@ export default function NuovoUtente() {
 
   return (
     <Box component="form" onSubmit={handleSubmit}>
-      {/* Header */}
-      <Box display="flex" alignItems="center" gap={1.5} mb={4}>
-        <IconButton onClick={() => navigate('/utenti')} size="small">
-          <ArrowBackIcon />
-        </IconButton>
+      <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+        <Typography variant="body2" color="text.secondary">
+          Utenti &gt; Nuovo Nucleo Familiare
+        </Typography>
+      </Stack>
+
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 3.2, flexWrap: 'wrap' }}>
         <Box>
-          <Typography variant="h4" fontWeight={700} lineHeight={1.2}>Nuovo Nucleo Familiare</Typography>
-          <Typography variant="body2" color="text.secondary" mt={0.5}>Compila i campi per registrare un nuovo nucleo</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 800, lineHeight: 1.1 }}>Anagrafica Nucleo</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Inserisci i dati per la creazione di un nuovo nucleo assistito.
+          </Typography>
         </Box>
+        <Stack direction="row" spacing={1.2}>
+          <Button variant="text" color="inherit" onClick={() => navigate('/utenti')}>
+            Annulla
+          </Button>
+          <Button type="submit" variant="contained" disabled={loading} sx={{ minWidth: 154 }}>
+            {loading ? <CircularProgress size={22} color="inherit" /> : 'Salva Nucleo'}
+          </Button>
+        </Stack>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <Stack gap={3}>
-        {/* Sezione: Dati nucleo */}
-        <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
-          <Box sx={{ px: 3, py: 1.5, bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider' }}>
-            <Typography variant="subtitle1" fontWeight={700}>Dati nucleo</Typography>
+      <Stack sx={{ gap: 3.4 }}>
+        {/* Sezione: Identificazione nucleo */}
+        <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden', mt: 0.4 }}>
+          <Box sx={{ px: 3, py: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
+            <BadgeOutlinedIcon color="success" fontSize="small" />
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>Identificazione Nucleo</Typography>
           </Box>
-          <Box sx={{ p: 3 }}>
-          <Stack direction="row" gap={2} flexWrap="wrap">
+          <Box sx={{ p: { xs: 2.6, md: 3.2 } }}>
+          <Stack sx={{ gap: 2.6 }}>
+            <Stack direction={{ xs: 'column', md: 'row' }} sx={{ gap: 2.2 }}>
+              <TextField
+                label="Numero Tessera"
+                placeholder="Es. BA-2024-001"
+                value={tessNumero}
+                onChange={(e) => setTessNumero(e.target.value)}
+                sx={{ flex: 1, minWidth: { md: 220 } }}
+              />
+              <TextField
+                select
+                label="Zona di Appartenenza"
+                value={zona}
+                onChange={(e) => setZona(e.target.value)}
+                required
+                sx={{ flex: 1, minWidth: { md: 220 } }}
+              >
+                {ZONE.map((z) => <MenuItem key={z} value={z}>{z}</MenuItem>)}
+              </TextField>
+              <TextField
+                label="Nuova Scadenza"
+                type="date"
+                value={tessScadNuova}
+                onChange={(e) => setTessScadNuova(e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
+                sx={{
+                  flex: 1,
+                  minWidth: { md: 220 },
+                  '& input': { fontSize: '0.97rem' },
+                  '& .MuiInputLabel-root': { px: 0.35, bgcolor: 'background.paper' },
+                }}
+              />
+            </Stack>
             <TextField
-              label="Codice Fiscale del nucleo"
-              value={cf}
-              onChange={(e) => setCf(e.target.value.toUpperCase())}
-              inputProps={{ maxLength: 16 }}
-              sx={{ flex: 1, minWidth: 200 }}
+              fullWidth
+              label="Indirizzo di Residenza"
+              placeholder="Via, Piazza, Numero Civico"
+              value={indirizzo}
+              onChange={(e) => setIndirizzo(e.target.value)}
             />
-            <TextField
-              select label="Zona" value={zona}
-              onChange={(e) => setZona(e.target.value)}
-              required sx={{ flex: 1, minWidth: 180 }}
-            >
-              {ZONE.map((z) => <MenuItem key={z} value={z}>{z}</MenuItem>)}
-            </TextField>
+            <Stack direction={{ xs: 'column', md: 'row' }} sx={{ gap: 2.2 }}>
+              <TextField
+                label="Codice Fiscale del nucleo"
+                value={cf}
+                onChange={(e) => setCf(e.target.value.toUpperCase())}
+                slotProps={{ htmlInput: { maxLength: 16 } }}
+                sx={{ flex: 1, minWidth: { md: 220 } }}
+              />
+              <TextField
+                label="Scadenza Precedente"
+                type="date"
+                value={tessScadVecchia}
+                onChange={(e) => setTessScadVecchia(e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
+                sx={{
+                  flex: 1,
+                  minWidth: { md: 220 },
+                  '& input': { fontSize: '0.97rem' },
+                  '& .MuiInputLabel-root': { px: 0.35, bgcolor: 'background.paper' },
+                }}
+              />
+            </Stack>
           </Stack>
           </Box>
         </Paper>
 
         {/* Sezione: Persone */}
         <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
-          <Box sx={{ px: 3, py: 1.5, bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider' }}>
-            <Typography variant="subtitle1" fontWeight={700}>Capofamiglia e Titolare tessera</Typography>
+          <Box
+            sx={{
+              px: 3,
+              py: 2,
+              borderBottom: 1,
+              borderColor: 'divider',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1.5,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Groups2OutlinedIcon color="success" fontSize="small" />
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>Titolare e Capofamiglia</Typography>
+            </Box>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">Titolare coincide con Capofamiglia</Typography>
+              <Switch checked={stessoSoggetto} onChange={(e) => setStessoSoggetto(e.target.checked)} />
+            </Stack>
           </Box>
           <Box sx={{ p: 3 }}>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={stessoSoggetto}
-                onChange={(e) => setStessoSoggetto(e.target.checked)}
-              />
-            }
-            label="Il titolare della tessera coincide con il capofamiglia"
-            sx={{ mb: 2 }}
-          />
-          <Divider sx={{ mb: 2 }} />
-          <Stack gap={3}>
+          <Stack sx={{ gap: 3 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 0.8, fontWeight: 700 }}>
+              DATI TITOLARE
+            </Typography>
             <SezionePersona
               value={capofamiglia}
               onChange={setCapofamiglia}
-              label={stessoSoggetto ? 'Capofamiglia (= Titolare tessera)' : 'Capofamiglia'}
+              label=""
               required
             />
-            {!stessoSoggetto && (
-              <>
-                <Divider />
-                <SezionePersona
-                  value={titolare}
-                  onChange={setTitolare}
-                  label="Titolare tessera"
-                />
-              </>
+
+            <Divider />
+
+            <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 0.8, fontWeight: 700 }}>
+              DATI CAPOFAMIGLIA
+            </Typography>
+            <SezionePersona
+              value={stessoSoggetto ? capofamiglia : titolare}
+              onChange={setTitolare}
+              label=""
+            />
+            {stessoSoggetto && (
+              <Typography variant="caption" color="text.secondary">
+                I dati sono sincronizzati con il titolare. Disattiva il toggle sopra per modificarli separatamente.
+              </Typography>
             )}
           </Stack>
           </Box>
@@ -261,8 +350,11 @@ export default function NuovoUtente() {
 
         {/* Sezione: Altri componenti */}
         <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
-          <Box sx={{ px: 3, py: 1.5, bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="subtitle1" fontWeight={700}>Altri componenti del nucleo</Typography>
+          <Box sx={{ px: 3, py: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <HomeOutlinedIcon color="success" fontSize="small" />
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>Componenti del Nucleo</Typography>
+            </Box>
             <Button startIcon={<AddIcon />} onClick={addComponente} size="small">
               Aggiungi componente
             </Button>
@@ -273,10 +365,10 @@ export default function NuovoUtente() {
               Nessun altro componente. Clicca "Aggiungi componente" per inserirne altri.
             </Typography>
           ) : (
-            <Stack gap={3}>
+            <Stack sx={{ gap: 3 }}>
               {componentiExtra.map((c, i) => (
                 <Box key={i}>
-                  <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                     <Typography variant="subtitle2" color="text.secondary">
                       Componente {i + 1}
                     </Typography>
@@ -299,44 +391,6 @@ export default function NuovoUtente() {
           </Box>
         </Paper>
 
-        {/* Sezione: Tessera */}
-        <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
-          <Box sx={{ px: 3, py: 1.5, bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider' }}>
-            <Typography variant="subtitle1" fontWeight={700}>Tessera</Typography>
-          </Box>
-          <Box sx={{ p: 3 }}>
-          <Stack direction="row" gap={2} flexWrap="wrap">
-            <TextField
-              label="Numero tessera"
-              value={tessNumero}
-              onChange={(e) => setTessNumero(e.target.value)}
-              sx={{ flex: 1, minWidth: 160 }}
-            />
-            <TextField
-              label="Scadenza precedente" type="date" value={tessScadVecchia}
-              onChange={(e) => setTessScadVecchia(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              sx={{ flex: 1, minWidth: 160 }}
-            />
-            <TextField
-              label="Scadenza nuova" type="date" value={tessScadNuova}
-              onChange={(e) => setTessScadNuova(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              sx={{ flex: 1, minWidth: 160 }}
-            />
-          </Stack>
-          </Box>
-        </Paper>
-
-        {/* Azioni */}
-        <Box display="flex" gap={2} justifyContent="flex-end">
-          <Button variant="outlined" onClick={() => navigate('/utenti')} disabled={loading}>
-            Annulla
-          </Button>
-          <Button type="submit" variant="contained" disabled={loading} sx={{ minWidth: 160 }}>
-            {loading ? <CircularProgress size={22} color="inherit" /> : 'Salva nucleo'}
-          </Button>
-        </Box>
       </Stack>
     </Box>
   )
