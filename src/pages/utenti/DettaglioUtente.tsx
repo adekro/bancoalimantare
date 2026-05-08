@@ -243,7 +243,16 @@ export default function DettaglioUtente() {
     if (nuclErr) { setError(nuclErr.message); setSaving(false); return }
 
     // 2. Rimuovi tutti i componenti e re-inserisci (approccio semplice)
-    await supabase.from('componenti').delete().eq('nucleo_id', id)
+    const { error: deleteCompErr } = await supabase
+      .from('componenti')
+      .delete()
+      .eq('nucleo_id', id)
+
+    if (deleteCompErr) {
+      setError(`Errore rimozione componenti: ${deleteCompErr.message}`)
+      setSaving(false)
+      return
+    }
 
     const toInsert = [
       {
@@ -282,7 +291,11 @@ export default function DettaglioUtente() {
     })
 
     const { error: compErr } = await supabase.from('componenti').insert(toInsert)
-    if (compErr) { setError(compErr.message); setSaving(false); return }
+    if (compErr) {
+      setError(`Errore inserimento componenti: ${compErr.message}`)
+      setSaving(false)
+      return
+    }
 
     // 3. Aggiorna / crea tessera
     if (tessNumero.trim()) {

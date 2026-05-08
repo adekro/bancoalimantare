@@ -278,6 +278,7 @@ DROP POLICY IF EXISTS "componenti: lettura per autenticati" ON public.componenti
 DROP POLICY IF EXISTS "componenti: inserimento per autenticati" ON public.componenti;
 DROP POLICY IF EXISTS "componenti: modifica per autenticati" ON public.componenti;
 DROP POLICY IF EXISTS "componenti: eliminazione solo admin" ON public.componenti;
+DROP POLICY IF EXISTS "componenti: eliminazione per autenticati" ON public.componenti;
 
 DROP POLICY IF EXISTS "tessere: lettura per autenticati" ON public.tessere;
 DROP POLICY IF EXISTS "tessere: inserimento per autenticati" ON public.tessere;
@@ -353,9 +354,9 @@ CREATE POLICY "componenti: modifica per autenticati"
     USING (auth.role() = 'authenticated')
     WITH CHECK (auth.role() = 'authenticated');
 
-CREATE POLICY "componenti: eliminazione solo admin"
+CREATE POLICY "componenti: eliminazione per autenticati"
     ON public.componenti FOR DELETE
-    USING (public.fn_is_admin());
+    USING (auth.role() = 'authenticated');
 
 -- ── tessere ──────────────────────────────────────────────────
 CREATE POLICY "tessere: lettura per autenticati"

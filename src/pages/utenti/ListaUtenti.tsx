@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type MouseEvent } from 'react'
+import { useState, useEffect, useCallback, type ChangeEvent, type MouseEvent } from 'react'
 import {
   Box, Typography, Button, TextField, MenuItem, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Paper, IconButton, Tooltip, Stack, Card,
@@ -12,6 +12,7 @@ import UnarchiveIcon from '@mui/icons-material/Unarchive'
 import AutorenewIcon from '@mui/icons-material/Autorenew'
 import SearchIcon from '@mui/icons-material/Search'
 import ContentPasteIcon from '@mui/icons-material/ContentPaste'
+import UploadFileIcon from '@mui/icons-material/UploadFile'
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined'
 import CheckCircleOutlineOutlinedIcon from '@mui/icons-material/CheckCircleOutlineOutlined'
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
@@ -26,6 +27,7 @@ import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/api/supabase'
 import type { StatoNucleo } from '@/components/common/StatusChip'
+import { parseNucleiFromExcel, type ImportNucleo } from '@/utils/nucleiExcelImport'
 
 const ZONE_FILTER = ['Tutte', 'Pombio', 'Duomo', 'Medassino', 'San Rocco']
 const STATO_FILTER = [
@@ -59,6 +61,13 @@ type Nucleo = {
 type StatoMenuAnchor = {
   nucleoId: string
   anchorEl: HTMLElement
+}
+
+type ImportOutcome = {
+  importati: number
+  saltati: number
+  falliti: number
+  dettagli: string[]
 }
 
 function getNomePrincipale(componenti: Componente[]) {
@@ -108,6 +117,20 @@ function birthYear(value: string | null | undefined) {
   return String(date.getFullYear())
 }
 
+function calcFascia(dataNascita: string | null): '0-17' | '18-29' | '30-64' | '65+' | null {
+  if (!dataNascita) return null
+  const nascita = new Date(dataNascita)
+  if (Number.isNaN(nascita.getTime())) return null
+  const oggi = new Date()
+  let anni = oggi.getFullYear() - nascita.getFullYear()
+  const m = oggi.getMonth() - nascita.getMonth()
+  if (m < 0 || (m === 0 && oggi.getDate() < nascita.getDate())) anni--
+  if (anni < 18) return '0-17'
+  if (anni < 30) return '18-29'
+  if (anni < 65) return '30-64'
+  return '65+'
+}
+
 function sortByOlderFirst(a: Componente, b: Componente) {
   const aDate = a.data_nascita ? new Date(a.data_nascita).getTime() : Number.POSITIVE_INFINITY
   const bDate = b.data_nascita ? new Date(b.data_nascita).getTime() : Number.POSITIVE_INFINITY
@@ -153,6 +176,13 @@ export default function ListaUtenti() {
   const [statoMenu, setStatoMenu] = useState<StatoMenuAnchor | null>(null)
   const [statoUpdatingId, setStatoUpdatingId] = useState<string | null>(null)
   const [expandedNucleoId, setExpandedNucleoId] = useState<string | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
+  const [importFileName, setImportFileName] = useState('')
+  const [importReading, setImportReading] = useState(false)
+  const [importNuclei, setImportNuclei] = useState<ImportNucleo[]>([])
+  const [importIssues, setImportIssues] = useState<string[]>([])
+  const [importSubmitting, setImportSubmitting] = useState(false)
+  const [importOutcome, setImportOutcome] = useState<ImportOutcome | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -260,6 +290,201 @@ export default function ListaUtenti() {
   const handleAzioneCopiaIncolla = () => {
     closeAzioniMenu()
     setSuccessMsg('La funzione di import rapido e disponibile nella pagina di dettaglio nucleo.')
+  }
+
+  const resetImportState = () => {
+    setImportFileName('')
+    setImportNuclei([])
+    setImportIssues([])
+    setImportOutcome(null)
+  }
+
+  const handleAzioneImportaExcel = () => {
+    closeAzioniMenu()
+    setImportOpen(true)
+    resetImportState()
+  }
+
+  const handleImportFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    event.target.value = ''
+
+    if (!file.name.toLowerCase().endsWith('.xlsx')) {
+      setError('Formato non supportato: seleziona un file .xlsx')
+      return
+    }
+
+    setImportReading(true)
+    setImportOutcome(null)
+    setError('')
+
+    try {
+      const parsed = await parseNucleiFromExcel(file)
+      setImportFileName(file.name)
+      setImportNuclei(parsed.nuclei)
+      setImportIssues(parsed.issues.map((issue) => `Riga ${issue.row}: ${issue.message}`))
+      if (parsed.nuclei.length === 0) {
+        setError('Nessun nucleo riconosciuto nel file selezionato.')
+      }
+    } catch (e) {
+      setImportFileName(file.name)
+      setImportNuclei([])
+      setImportIssues([])
+      setError(e instanceof Error ? e.message : 'Errore durante la lettura del file Excel.')
+    } finally {
+      setImportReading(false)
+    }
+  }
+
+  const validImportNuclei = importNuclei.filter((n) => n.validationErrors.length === 0)
+
+  const handleConfermaImport = async () => {
+    if (validImportNuclei.length === 0) {
+      setError('Non ci sono nuclei validi da importare.')
+      return
+    }
+
+    setImportSubmitting(true)
+    setError('')
+
+    const dettagli: string[] = []
+    let importati = 0
+    let saltati = 0
+    let falliti = 0
+
+    const cfValues = Array.from(new Set(
+      validImportNuclei
+        .map((n) => n.codiceFiscale?.toUpperCase().trim() ?? '')
+        .filter(Boolean)
+    ))
+    const tessValues = Array.from(new Set(
+      validImportNuclei
+        .map((n) => n.tesseraNumero?.trim() ?? '')
+        .filter(Boolean)
+    ))
+
+    const existingCf = new Set<string>()
+    const existingTessere = new Set<string>()
+
+    if (cfValues.length > 0) {
+      const { data } = await supabase
+        .from('nuclei')
+        .select('codice_fiscale')
+        .in('codice_fiscale', cfValues)
+      data?.forEach((row) => {
+        if (row.codice_fiscale) existingCf.add(String(row.codice_fiscale).toUpperCase().trim())
+      })
+    }
+
+    if (tessValues.length > 0) {
+      const { data } = await supabase
+        .from('tessere')
+        .select('numero')
+        .in('numero', tessValues)
+      data?.forEach((row) => {
+        if (row.numero) existingTessere.add(String(row.numero).trim())
+      })
+    }
+
+    const seenCfInFile = new Set<string>()
+    const seenTessInFile = new Set<string>()
+
+    for (const nucleo of validImportNuclei) {
+      const capofamiglia = nucleo.persone[0]
+      if (!nucleo.zona) {
+        saltati++
+        dettagli.push(`Saltato blocco riga ${nucleo.sourceRowStart}: zona non riconosciuta.`)
+        continue
+      }
+      const cf = nucleo.codiceFiscale?.toUpperCase().trim() ?? ''
+      const tessera = nucleo.tesseraNumero?.trim() ?? ''
+
+      if (cf && (existingCf.has(cf) || seenCfInFile.has(cf))) {
+        saltati++
+        dettagli.push(`Saltato blocco riga ${nucleo.sourceRowStart}: codice fiscale gia presente (${cf}).`)
+        continue
+      }
+
+      if (tessera && (existingTessere.has(tessera) || seenTessInFile.has(tessera))) {
+        saltati++
+        dettagli.push(`Saltato blocco riga ${nucleo.sourceRowStart}: tessera gia presente (${tessera}).`)
+        continue
+      }
+
+      const { data: createdNucleo, error: nucleoErr } = await supabase
+        .from('nuclei')
+        .insert({
+          codice_fiscale: cf || null,
+          zona: nucleo.zona,
+          stato: 'verde',
+          archiviato: false,
+        })
+        .select('id')
+        .single()
+
+      if (nucleoErr || !createdNucleo) {
+        falliti++
+        dettagli.push(`Errore blocco riga ${nucleo.sourceRowStart}: ${nucleoErr?.message ?? 'creazione nucleo fallita.'}`)
+        continue
+      }
+
+      const componentiToInsert = nucleo.persone
+        .filter((p) => p.cognome || p.nome)
+        .map((p, idx) => ({
+          nucleo_id: createdNucleo.id,
+          ruolo: idx === 0 ? 'capofamiglia' : 'componente',
+          nome: p.nome,
+          cognome: p.cognome,
+          data_nascita: p.dataNascita,
+          nazionalita: p.nazionalita,
+          fascia_eta: calcFascia(p.dataNascita),
+        }))
+
+      const { error: compErr } = await supabase
+        .from('componenti')
+        .insert(componentiToInsert)
+
+      if (compErr) {
+        falliti++
+        dettagli.push(`Errore componenti riga ${nucleo.sourceRowStart}: ${compErr.message}`)
+        continue
+      }
+
+      if (tessera) {
+        const { error: tessErr } = await supabase
+          .from('tessere')
+          .insert({
+            nucleo_id: createdNucleo.id,
+            numero: tessera,
+            scadenza_nuova: nucleo.tesseraScadenza,
+          })
+
+        if (tessErr) {
+          dettagli.push(`Nucleo ${capofamiglia.cognome} ${capofamiglia.nome} importato senza tessera: ${tessErr.message}`.trim())
+        }
+      }
+
+      importati++
+      if (cf) {
+        existingCf.add(cf)
+        seenCfInFile.add(cf)
+      }
+      if (tessera) {
+        existingTessere.add(tessera)
+        seenTessInFile.add(tessera)
+      }
+    }
+
+    setImportSubmitting(false)
+    setImportOutcome({ importati, saltati, falliti, dettagli })
+
+    if (importati > 0) {
+      setSuccessMsg(`Import completato: ${importati} nuclei importati, ${saltati} saltati, ${falliti} falliti.`)
+      load()
+    } else {
+      setError(`Import non completato: ${saltati} nuclei saltati, ${falliti} falliti.`)
+    }
   }
 
   const handleAzioneRinnovo = () => {
@@ -627,6 +852,12 @@ export default function ListaUtenti() {
             <Typography variant="body2">Copia-incolla da Excel</Typography>
           </Stack>
         </MenuItem>
+        <MenuItem onClick={handleAzioneImportaExcel}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <UploadFileIcon fontSize="small" />
+            <Typography variant="body2">Importa da file Excel</Typography>
+          </Stack>
+        </MenuItem>
         <MenuItem onClick={handleAzioneRinnovo}>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
             <AutorenewIcon fontSize="small" />
@@ -691,6 +922,121 @@ export default function ListaUtenti() {
           <Button onClick={() => setRinnovoOpen(false)}>Annulla</Button>
           <Button variant="contained" onClick={handleRinnovoAnnuale} disabled={rinnovoLoading}>
             {rinnovoLoading ? <CircularProgress size={20} color="inherit" /> : 'Conferma rinnovo'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog import da file Excel */}
+      <Dialog
+        open={importOpen}
+        onClose={() => { setImportOpen(false); resetImportState() }}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle>Importa nuclei da file Excel (.xlsx)</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.2 }}>
+            Regola attiva: ogni nucleo viene letto come blocco a partire dalla riga capofila (es. NR/TESS valorizzati) e include i componenti nelle righe successive.
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Mappatura zona da colonna GR: S = San Rocco, D = Duomo, P = Pombio, M = Medassino. Duplicati su codice fiscale o tessera vengono saltati con report finale.
+          </Typography>
+
+          <Stack direction={{ xs: 'column', md: 'row' }} sx={{ gap: 1.5, alignItems: { xs: 'stretch', md: 'center' }, mb: 2 }}>
+            <Button
+              component="label"
+              variant="outlined"
+              startIcon={<UploadFileIcon />}
+              disabled={importReading || importSubmitting}
+            >
+              Seleziona file Excel
+              <input hidden type="file" accept=".xlsx" onChange={handleImportFileChange} />
+            </Button>
+            <Typography variant="body2" color="text.secondary">
+              {importFileName || 'Nessun file selezionato'}
+            </Typography>
+            {importReading && <CircularProgress size={20} />}
+          </Stack>
+
+          {importNuclei.length > 0 && (
+            <>
+              <Stack direction={{ xs: 'column', md: 'row' }} sx={{ gap: 1.2, mb: 1.5 }}>
+                <Chip label={`Nuclei rilevati: ${importNuclei.length}`} color="default" variant="outlined" />
+                <Chip label={`Nuclei validi: ${validImportNuclei.length}`} color="success" variant="outlined" />
+                <Chip label={`Errori/parsing: ${importIssues.length}`} color={importIssues.length > 0 ? 'warning' : 'default'} variant="outlined" />
+              </Stack>
+
+              <TableContainer component={Paper} variant="outlined" sx={{ mb: 2, maxHeight: 320 }}>
+                <Table stickyHeader size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700 }}>Righe</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Zona</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Capofamiglia</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Componenti</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Tessera</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Codice Fiscale</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {importNuclei.slice(0, 50).map((n) => (
+                      <TableRow key={`${n.sourceRowStart}-${n.sourceRowEnd}`}>
+                        <TableCell>{`${n.sourceRowStart}-${n.sourceRowEnd}`}</TableCell>
+                        <TableCell>{n.zona ?? '—'}</TableCell>
+                        <TableCell>{`${n.persone[0]?.cognome ?? ''} ${n.persone[0]?.nome ?? ''}`.trim() || '—'}</TableCell>
+                        <TableCell>{n.persone.length}</TableCell>
+                        <TableCell>{n.tesseraNumero ?? '—'}</TableCell>
+                        <TableCell>{n.codiceFiscale ?? '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </>
+          )}
+
+          {importIssues.length > 0 && (
+            <Paper variant="outlined" sx={{ p: 1.2, maxHeight: 180, overflow: 'auto', bgcolor: 'warning.50' }}>
+              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Avvisi di validazione</Typography>
+              {importIssues.slice(0, 80).map((issue, idx) => (
+                <Typography key={`${issue}-${idx}`} variant="caption" sx={{ display: 'block' }}>
+                  - {issue}
+                </Typography>
+              ))}
+            </Paper>
+          )}
+
+          {importOutcome && (
+            <Alert severity={importOutcome.importati > 0 ? 'success' : 'warning'} sx={{ mt: 2 }}>
+              Import completato: {importOutcome.importati} importati, {importOutcome.saltati} saltati, {importOutcome.falliti} falliti.
+              {importOutcome.dettagli.length > 0 && (
+                <Box sx={{ mt: 0.7 }}>
+                  {importOutcome.dettagli.slice(0, 60).map((d, i) => (
+                    <Typography key={`${d}-${i}`} variant="caption" sx={{ display: 'block' }}>
+                      - {d}
+                    </Typography>
+                  ))}
+                </Box>
+              )}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setImportOpen(false)
+              resetImportState()
+            }}
+            disabled={importSubmitting}
+          >
+            Chiudi
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleConfermaImport}
+            disabled={importReading || importSubmitting || validImportNuclei.length === 0}
+          >
+            {importSubmitting ? <CircularProgress size={20} color="inherit" /> : 'Importa nuclei validi'}
           </Button>
         </DialogActions>
       </Dialog>
