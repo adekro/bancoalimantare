@@ -123,42 +123,14 @@ export default function Sidebar({ onClose }: SidebarProps) {
         })}
       </List>
 
-      <Box sx={{ px: 2, pb: 2 }}>
-        <Button
-          fullWidth
-          variant="contained"
-          startIcon={<AddIcon />}
-          sx={{
-            bgcolor: '#0c6a3a',
-            '&:hover': { bgcolor: '#0a5a31' },
-            borderRadius: 2,
-            mb: 1.5,
-          }}
-        >
-          Nuovo Ingresso
-        </Button>
-      </Box>
+      
 
       <Divider />
 
       {/* Utente + Logout */}
       <Box sx={{ p: 2 }}>
-        <Button
-          fullWidth
-          startIcon={<SettingsOutlinedIcon />}
-          color="inherit"
-          sx={{ justifyContent: 'flex-start', mb: 0.5 }}
-        >
-          Impostazioni
-        </Button>
-        <Button
-          fullWidth
-          startIcon={<HelpOutlineOutlinedIcon />}
-          color="inherit"
-          sx={{ justifyContent: 'flex-start', mb: 1.5 }}
-        >
-          Supporto
-        </Button>
+     
+    
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.2 }}>
           <Avatar sx={{ width: 34, height: 34, bgcolor: 'primary.main', fontSize: 14 }}>
