@@ -91,18 +91,31 @@ Checklist di sviluppo fase per fase. Spunta ogni voce al completamento.
 ### Schema Supabase da creare:
 - [ ] Tabella `distribuzioni` (id, nucleo_id, centro, data, operatore_id, note)
 
+### Regole Dati e Affidabilità:
+- [x] Definisci `codice_fiscale` e `numero_tessera` come chiavi univoche operative per identificare il nucleo avente diritto
+- [ ] Prevedi controllo di "pulizia" dati prima della registrazione consegne (evita duplicati/incongruenze)
+- [ ] Verifica che ogni consegna sia attribuita in modo univoco al nucleo corretto
+- [ ] Conferma che la qualità dei dati garantisca affidabilità della reportistica
+
 ### Componenti:
-- [ ] Crea `src/pages/distribuzione/Distribuzione.tsx`
-  - [ ] Selezione centro (Pombio / Duomo / Medassino / San Rocco)
-  - [ ] Lista famiglie del centro con checkbox ritiro
-  - [ ] Blocco automatico: nucleo già servito nella stessa settimana
-  - [ ] Salvataggio aggiorna giacenze magazzino
-- [ ] Crea `src/hooks/useDistribuzione.ts`
+- [x] Crea `src/pages/distribuzione/Distribuzione.tsx`
+  - [x] Selezione centro (Pombio / Duomo / Medassino / San Rocco)
+  - [x] Modello interfaccia "Elenco Rapido" senza sotto-menu complessi
+  - [x] Lista famiglie del centro con selezione diretta del nominativo
+  - [x] Registrazione consegna one-click sulla data corrente
+  - [x] Filtro dinamico istantaneo per zona, stato tessera, codice fiscale
+  - [x] Blocco automatico: nucleo già servito nella stessa settimana
+  - [x] Salvataggio distribuzione (solo tracciamento in Fase 4)
+  - [x] Ordinamento alfabetico per cognome del tesserato
+- [x] Crea `src/hooks/useDistribuzione.ts`
 
 **Verifiche:**
 - [ ] Distribuzione blocca doppio ritiro settimanale
-- [ ] Giacenze magazzino si aggiornano dopo la distribuzione
+- [ ] Integrazione giacenze demandata a Fase 5 (fuori scope Fase 4)
 - [ ] Lista ordinata per cognome
+- [ ] Ricerca/filtro dinamico restituisce risultati corretti in tempo reale
+- [ ] Registrazione one-click riduce i passaggi operativi rispetto al flusso con apertura singole schede
+- [ ] Tempo medio di servizio per famiglia ridotto grazie al flusso snello
 
 ---
 

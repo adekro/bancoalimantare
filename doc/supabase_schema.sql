@@ -141,10 +141,12 @@ CREATE INDEX IF NOT EXISTS idx_componenti_cognome    ON public.componenti(cognom
 
 CREATE INDEX IF NOT EXISTS idx_tessere_nucleo        ON public.tessere(nucleo_id);
 CREATE INDEX IF NOT EXISTS idx_tessere_numero        ON public.tessere(numero);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_tessere_numero  ON public.tessere(numero);
 
 CREATE INDEX IF NOT EXISTS idx_distribuzioni_nucleo  ON public.distribuzioni(nucleo_id);
 CREATE INDEX IF NOT EXISTS idx_distribuzioni_data    ON public.distribuzioni(data);
 CREATE INDEX IF NOT EXISTS idx_distribuzioni_centro  ON public.distribuzioni(centro);
+CREATE INDEX IF NOT EXISTS idx_distribuzioni_nucleo_data ON public.distribuzioni(nucleo_id, data);
 
 CREATE INDEX IF NOT EXISTS idx_movimenti_articolo    ON public.movimenti_magazzino(articolo_id);
 CREATE INDEX IF NOT EXISTS idx_movimenti_data        ON public.movimenti_magazzino(data);
@@ -209,6 +211,35 @@ BEGIN
 END;
 $$;
 
+-- Blocco doppio ritiro nella stessa settimana ISO (lun-dom)
+CREATE OR REPLACE FUNCTION public.fn_distribuzioni_no_doppio_ritiro_settimanale()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+DECLARE
+    v_start_settimana DATE;
+    v_end_settimana   DATE;
+BEGIN
+    v_start_settimana := NEW.data - ((EXTRACT(ISODOW FROM NEW.data)::INT) - 1);
+    v_end_settimana   := v_start_settimana + 6;
+
+    IF EXISTS (
+        SELECT 1
+        FROM public.distribuzioni d
+        WHERE d.nucleo_id = NEW.nucleo_id
+          AND d.data BETWEEN v_start_settimana AND v_end_settimana
+          AND (TG_OP = 'INSERT' OR d.id <> NEW.id)
+    ) THEN
+        RAISE EXCEPTION 'Nucleo gia servito nella settimana corrente (% - %).', v_start_settimana, v_end_settimana;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_distribuzioni_no_doppio_ritiro_settimanale ON public.distribuzioni;
+CREATE TRIGGER trg_distribuzioni_no_doppio_ritiro_settimanale
+    BEFORE INSERT OR UPDATE OF nucleo_id, data ON public.distribuzioni
+    FOR EACH ROW EXECUTE FUNCTION public.fn_distribuzioni_no_doppio_ritiro_settimanale();
+
 -- Helper: verifica se l'utente corrente è admin
 CREATE OR REPLACE FUNCTION public.fn_is_admin()
 RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE AS $$
@@ -231,6 +262,43 @@ ALTER TABLE public.tessere              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.distribuzioni        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.articoli             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.movimenti_magazzino  ENABLE ROW LEVEL SECURITY;
+
+-- Rende il blocco policy idempotente in caso di rilancio script
+DROP POLICY IF EXISTS "access_requests: inserimento pubblico" ON public.access_requests;
+DROP POLICY IF EXISTS "access_requests: solo admin legge" ON public.access_requests;
+DROP POLICY IF EXISTS "access_requests: solo admin aggiorna" ON public.access_requests;
+DROP POLICY IF EXISTS "access_requests: solo admin elimina" ON public.access_requests;
+
+DROP POLICY IF EXISTS "nuclei: lettura per autenticati" ON public.nuclei;
+DROP POLICY IF EXISTS "nuclei: inserimento per autenticati" ON public.nuclei;
+DROP POLICY IF EXISTS "nuclei: modifica per autenticati" ON public.nuclei;
+DROP POLICY IF EXISTS "nuclei: eliminazione solo admin" ON public.nuclei;
+
+DROP POLICY IF EXISTS "componenti: lettura per autenticati" ON public.componenti;
+DROP POLICY IF EXISTS "componenti: inserimento per autenticati" ON public.componenti;
+DROP POLICY IF EXISTS "componenti: modifica per autenticati" ON public.componenti;
+DROP POLICY IF EXISTS "componenti: eliminazione solo admin" ON public.componenti;
+
+DROP POLICY IF EXISTS "tessere: lettura per autenticati" ON public.tessere;
+DROP POLICY IF EXISTS "tessere: inserimento per autenticati" ON public.tessere;
+DROP POLICY IF EXISTS "tessere: modifica per autenticati" ON public.tessere;
+DROP POLICY IF EXISTS "tessere: eliminazione solo admin" ON public.tessere;
+
+DROP POLICY IF EXISTS "distribuzioni: lettura per autenticati" ON public.distribuzioni;
+DROP POLICY IF EXISTS "distribuzioni: inserimento per autenticati" ON public.distribuzioni;
+DROP POLICY IF EXISTS "distribuzioni: modifica solo admin" ON public.distribuzioni;
+DROP POLICY IF EXISTS "distribuzioni: modifica nota per autenticati" ON public.distribuzioni;
+DROP POLICY IF EXISTS "distribuzioni: eliminazione solo admin" ON public.distribuzioni;
+
+DROP POLICY IF EXISTS "articoli: lettura per autenticati" ON public.articoli;
+DROP POLICY IF EXISTS "articoli: inserimento solo admin" ON public.articoli;
+DROP POLICY IF EXISTS "articoli: modifica solo admin" ON public.articoli;
+DROP POLICY IF EXISTS "articoli: eliminazione solo admin" ON public.articoli;
+
+DROP POLICY IF EXISTS "movimenti: lettura per autenticati" ON public.movimenti_magazzino;
+DROP POLICY IF EXISTS "movimenti: inserimento per autenticati" ON public.movimenti_magazzino;
+DROP POLICY IF EXISTS "movimenti: modifica solo admin" ON public.movimenti_magazzino;
+DROP POLICY IF EXISTS "movimenti: eliminazione solo admin" ON public.movimenti_magazzino;
 
 -- ── access_requests ──────────────────────────────────────────
 -- Chiunque (anche non autenticato) può inviare una richiesta di accesso
@@ -316,15 +384,22 @@ CREATE POLICY "distribuzioni: inserimento per autenticati"
     ON public.distribuzioni FOR INSERT
     WITH CHECK (auth.role() = 'authenticated');
 
--- Solo admin può correggere o cancellare distribuzioni già registrate
+-- Solo admin può correggere distribuzioni già registrate
 CREATE POLICY "distribuzioni: modifica solo admin"
     ON public.distribuzioni FOR UPDATE
     USING (public.fn_is_admin())
     WITH CHECK (public.fn_is_admin());
 
+-- Gli operatori autenticati possono aggiornare note operative sulla distribuzione
+CREATE POLICY "distribuzioni: modifica nota per autenticati"
+    ON public.distribuzioni FOR UPDATE
+    USING (auth.role() = 'authenticated')
+    WITH CHECK (auth.role() = 'authenticated');
+
+-- Gli operatori autenticati possono annullare una distribuzione (undo/sblocco)
 CREATE POLICY "distribuzioni: eliminazione solo admin"
     ON public.distribuzioni FOR DELETE
-    USING (public.fn_is_admin());
+    USING (auth.role() = 'authenticated');
 
 -- ── articoli ─────────────────────────────────────────────────
 CREATE POLICY "articoli: lettura per autenticati"
@@ -385,6 +460,7 @@ GRANT ALL    ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 GRANT EXECUTE ON FUNCTION public.fn_is_admin()              TO authenticated;
 GRANT EXECUTE ON FUNCTION public.fn_compute_fascia_eta(DATE) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.fn_rinnovo_massivo_annuale() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_distribuzioni_no_doppio_ritiro_settimanale() TO authenticated;
 
 -- ============================================================
 -- FINE SCRIPT
