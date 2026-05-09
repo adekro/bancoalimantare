@@ -7,15 +7,12 @@ import {
   Toolbar,
   IconButton,
   Typography,
-  TextField,
-  InputAdornment,
   Avatar,
   Stack,
   useMediaQuery,
   useTheme,
 } from '@mui/material'
 import MenuIcon from '@mui/icons-material/Menu'
-import SearchIcon from '@mui/icons-material/Search'
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined'
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined'
 import Sidebar from './Sidebar'
@@ -27,7 +24,6 @@ export default function AppLayout() {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [mobileOpen, setMobileOpen] = useState(false)
-  const navigate = useNavigate()
   const location = useLocation()
   const { user } = useAuth()
 
@@ -43,7 +39,6 @@ export default function AppLayout() {
 
   const handleDrawerToggle = () => setMobileOpen((prev) => !prev)
   const userName = user?.email?.split('@')[0] ?? 'Admin'
-  void navigate // usato da Sidebar, qui solo per evitare warning
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: 'background.default' }}>
@@ -122,24 +117,12 @@ export default function AppLayout() {
               height: 74,
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
+              justifyContent: 'flex-end',
               borderBottom: '1px solid',
               borderColor: 'divider',
               mb: 3,
             }}
           >
-            <TextField
-              size="small"
-              placeholder="Cerca per CF, nominativo o tessera..."
-              sx={{ minWidth: 280, width: '42%', '& .MuiInputBase-root': { bgcolor: '#ffffff' } }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-            />
             <Stack direction="row" spacing={1.5} alignItems="center">
               <IconButton color="default" aria-label="notifiche">
                 <NotificationsNoneOutlinedIcon />
