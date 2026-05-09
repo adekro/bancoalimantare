@@ -640,14 +640,7 @@ export default function ListaUtenti() {
             </Stack>
           </Stack>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-            <Button
-              variant="text"
-              startIcon={<TuneIcon />}
-              color="inherit"
-              sx={{ color: 'text.secondary' }}
-            >
-              Filtri Avanzati
-            </Button>
+       
             <Button
               variant={showArchiviati ? 'outlined' : 'text'}
               color="inherit"

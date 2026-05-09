@@ -78,7 +78,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
           <FoodBankIcon sx={{ fontSize: 18 }} />
         </Box>
         <Box>
-          <Typography variant="subtitle1" fontWeight={800} lineHeight={1.2}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
             Banco Alimentare
           </Typography>
           <Typography variant="caption" sx={{ opacity: 0.7, letterSpacing: 0.9 }}>
@@ -115,8 +115,11 @@ export default function Sidebar({ onClose }: SidebarProps) {
                 {item.icon}
               </ListItemIcon>
               <ListItemText
-                primary={item.label}
-                primaryTypographyProps={{ fontWeight: isActive ? 700 : 400 }}
+                primary={
+                  <Typography variant="body1" sx={{ fontWeight: isActive ? 700 : 400 }}>
+                    {item.label}
+                  </Typography>
+                }
               />
             </ListItemButton>
           )
@@ -137,7 +140,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
             {(user?.email?.slice(0, 1) ?? 'A').toUpperCase()}
           </Avatar>
           <Box>
-            <Typography variant="body2" fontWeight={700} lineHeight={1.1}>
+            <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.1 }}>
               {user?.email?.split('@')[0] ?? 'Admin User'}
             </Typography>
             <Typography variant="caption" color="text.secondary">
