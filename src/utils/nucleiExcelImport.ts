@@ -5,13 +5,20 @@ export type ImportPerson = {
   nome: string
   dataNascita: string | null
   nazionalita: string | null
+  sesso: 'M' | 'F' | null
+  paesiTerziUe: boolean
+  isCapofamiglia: boolean
+  isTesserato: boolean
 }
 
 export type ImportNucleo = {
   sourceRowStart: number
   sourceRowEnd: number
+  numeroNucleoFamiliare: string | null
   zona: string | null
   codiceFiscale: string | null
+  telefono: string | null
+  indirizzo: string | null
   tesseraNumero: string | null
   tesseraScadenza: string | null
   persone: ImportPerson[]
@@ -34,6 +41,8 @@ type HeaderMap = {
   cognome: number
   nome: number
   nazNascita: number
+  sesso: number
+  paesiTerziUe: number
   data: number
   tess: number
   scad: number
@@ -48,6 +57,8 @@ const DEFAULT_HEADER_MAP: HeaderMap = {
   cognome: -1,
   nome: -1,
   nazNascita: -1,
+  sesso: -1,
+  paesiTerziUe: -1,
   data: -1,
   tess: -1,
   scad: -1,
@@ -88,6 +99,10 @@ function findHeaderMap(rows: unknown[][]): { rowIndex: number; map: HeaderMap } 
       if (cell.includes('COGNOME')) map.cognome = idx
       if (cell === 'NOME' || cell.startsWith('NOME ')) map.nome = idx
       if (cell.includes('NAZ NASCITA') || cell.includes('NAZIONALITA')) map.nazNascita = idx
+      if (cell === 'SESSO' || cell === 'SEX') map.sesso = idx
+      if (cell.includes('PAESI TERZI UE') || cell.includes('EXTRA UE') || cell.includes('NON UE')) {
+        map.paesiTerziUe = idx
+      }
       if (cell === 'DATA' || cell.includes('DATA NASCITA')) map.data = idx
       if (cell.startsWith('TESS')) map.tess = idx
       if (cell.startsWith('SCAD')) map.scad = idx
@@ -189,6 +204,20 @@ function parseZonaFromGr(value: unknown): string | null {
   return ZONA_BY_GR[gr] ?? null
 }
 
+function normalizeSesso(value: unknown): 'M' | 'F' | null {
+  const raw = asTrimmedString(value).toUpperCase()
+  if (!raw) return null
+  if (raw === 'M' || raw === 'MASCHIO') return 'M'
+  if (raw === 'F' || raw === 'FEMMINA') return 'F'
+  return null
+}
+
+function normalizePaesiTerziUe(value: unknown): boolean {
+  const raw = asTrimmedString(value).toUpperCase()
+  if (!raw) return false
+  return ['SI', 'S', 'YES', 'Y', 'TRUE', '1', 'X'].includes(raw)
+}
+
 function validateNucleo(nucleo: ImportNucleo): string[] {
   const errors: string[] = []
 
@@ -201,9 +230,20 @@ function validateNucleo(nucleo: ImportNucleo): string[] {
     return errors
   }
 
-  const capofamiglia = nucleo.persone[0]
-  if (!capofamiglia.cognome || !capofamiglia.nome) {
+  const capofamiglia = nucleo.persone.find((p) => p.isCapofamiglia)
+  if (!capofamiglia) {
+    errors.push('Capofamiglia non identificato: manca il numero nucleo familiare in colonna A sulla riga persona')
+  } else if (!capofamiglia.cognome || !capofamiglia.nome) {
     errors.push('Capofamiglia incompleto: cognome e nome sono obbligatori')
+  }
+
+  const capofamigliaCount = nucleo.persone.filter((p) => p.isCapofamiglia).length
+  if (capofamigliaCount > 1) {
+    errors.push('Capofamiglia ambiguo: trovate piu righe con numero nucleo familiare nel blocco')
+  }
+
+  if (nucleo.tesseraNumero && !nucleo.persone.some((p) => p.isTesserato)) {
+    errors.push('Tesserato non identificato: tessera presente ma assente sulla riga persona in colonna J')
   }
 
   nucleo.persone.forEach((p, idx) => {
@@ -221,6 +261,37 @@ function validateNucleo(nucleo: ImportNucleo): string[] {
   })
 
   return errors
+}
+
+function applyRoleFallbacks(nucleo: ImportNucleo): void {
+  if (nucleo.persone.length === 0) return
+
+  const capofamiglia = nucleo.persone.find((p) => p.isCapofamiglia)
+  if (!capofamiglia) {
+    nucleo.persone[0].isCapofamiglia = true
+  }
+
+  if (nucleo.tesseraNumero && !nucleo.persone.some((p) => p.isTesserato)) {
+    const capo = nucleo.persone.find((p) => p.isCapofamiglia)
+    if (capo) capo.isTesserato = true
+    else nucleo.persone[0].isTesserato = true
+  }
+}
+
+function buildNucleoFromRow(row: unknown[], map: HeaderMap, excelRow: number): ImportNucleo {
+  return {
+    sourceRowStart: excelRow,
+    sourceRowEnd: excelRow,
+    numeroNucleoFamiliare: asTrimmedString(getCell(row, map.nr)) || null,
+    zona: parseZonaFromGr(getCell(row, map.gr)),
+    codiceFiscale: normalizeCodiceFiscale(getCell(row, map.codFisc)),
+    telefono: asTrimmedString(getCell(row, map.telefono)) || null,
+    indirizzo: asTrimmedString(getCell(row, map.indirizzo)) || null,
+    tesseraNumero: normalizeTessera(getCell(row, map.tess)),
+    tesseraScadenza: normalizeDate(getCell(row, map.scad)),
+    persone: [],
+    validationErrors: [],
+  }
 }
 
 export async function parseNucleiFromExcel(file: File): Promise<ParseNucleiResult> {
@@ -259,38 +330,43 @@ export async function parseNucleiFromExcel(file: File): Promise<ParseNucleiResul
   for (let i = headerRowIndex + 1; i < rows.length; i++) {
     const row = rows[i]
     const excelRow = i + 1
+    const lead = isLeadRow(row, map)
+
+    if (lead) {
+      if (!current) {
+        current = buildNucleoFromRow(row, map, excelRow)
+      } else if (current.persone.length > 0) {
+        applyRoleFallbacks(current)
+        current.validationErrors = validateNucleo(current)
+        nuclei.push(current)
+        current = buildNucleoFromRow(row, map, excelRow)
+      } else {
+        current = buildNucleoFromRow(row, map, excelRow)
+      }
+    }
 
     const cognomeCell = getCell(row, map.cognome)
     const nomeCell = getCell(row, map.nome)
     if (!isPersonRow(cognomeCell, nomeCell)) continue
 
-    const lead = isLeadRow(row, map)
-
-    if (!current || lead) {
-      if (current) {
-        current.validationErrors = validateNucleo(current)
-        nuclei.push(current)
-      }
-
-      current = {
-        sourceRowStart: excelRow,
-        sourceRowEnd: excelRow,
-        zona: parseZonaFromGr(getCell(row, map.gr)),
-        codiceFiscale: normalizeCodiceFiscale(getCell(row, map.codFisc)),
-        tesseraNumero: normalizeTessera(getCell(row, map.tess)),
-        tesseraScadenza: normalizeDate(getCell(row, map.scad)),
-        persone: [],
-        validationErrors: [],
-      }
+    if (!current) {
+      current = buildNucleoFromRow(row, map, excelRow)
     }
 
     if (!current) continue
+
+    const isCapofamigliaOnRow = Boolean(asTrimmedString(getCell(row, map.nr)))
+    const isTesseratoOnRow = Boolean(asTrimmedString(getCell(row, map.tess)))
 
     const persona: ImportPerson = {
       cognome: asTrimmedString(cognomeCell),
       nome: asTrimmedString(nomeCell),
       dataNascita: normalizeDate(getCell(row, map.data)),
       nazionalita: asTrimmedString(getCell(row, map.nazNascita)) || null,
+      sesso: normalizeSesso(getCell(row, map.sesso)),
+      paesiTerziUe: normalizePaesiTerziUe(getCell(row, map.paesiTerziUe)),
+      isCapofamiglia: isCapofamigliaOnRow,
+      isTesserato: isTesseratoOnRow,
     }
 
     if (!persona.dataNascita && asTrimmedString(getCell(row, map.data))) {
@@ -309,6 +385,18 @@ export async function parseNucleiFromExcel(file: File): Promise<ParseNucleiResul
       current.codiceFiscale = normalizeCodiceFiscale(getCell(row, map.codFisc))
     }
 
+    if (!current.numeroNucleoFamiliare) {
+      current.numeroNucleoFamiliare = asTrimmedString(getCell(row, map.nr)) || null
+    }
+
+    if (!current.telefono) {
+      current.telefono = asTrimmedString(getCell(row, map.telefono)) || null
+    }
+
+    if (!current.indirizzo) {
+      current.indirizzo = asTrimmedString(getCell(row, map.indirizzo)) || null
+    }
+
     if (!current.tesseraNumero) {
       current.tesseraNumero = normalizeTessera(getCell(row, map.tess))
     }
@@ -318,7 +406,8 @@ export async function parseNucleiFromExcel(file: File): Promise<ParseNucleiResul
     }
   }
 
-  if (current) {
+  if (current && current.persone.length > 0) {
+    applyRoleFallbacks(current)
     current.validationErrors = validateNucleo(current)
     nuclei.push(current)
   }

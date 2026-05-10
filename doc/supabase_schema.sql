@@ -64,7 +64,10 @@ CREATE TABLE IF NOT EXISTS public.access_requests (
 -- Nuclei familiari
 CREATE TABLE IF NOT EXISTS public.nuclei (
     id              UUID               PRIMARY KEY DEFAULT uuid_generate_v4(),
+    numero_nucleo_familiare TEXT,
     codice_fiscale  TEXT               UNIQUE,
+    telefono        TEXT,
+    indirizzo       TEXT,
     zona            zona_distribuzione NOT NULL,
     stato           stato_nucleo       NOT NULL DEFAULT 'verde',
     archiviato      BOOLEAN            NOT NULL DEFAULT FALSE,
@@ -79,11 +82,27 @@ CREATE TABLE IF NOT EXISTS public.componenti (
     ruolo        ruolo_componente   NOT NULL,
     nome         TEXT               NOT NULL,
     cognome      TEXT               NOT NULL,
+    codice_fiscale TEXT,
     data_nascita DATE,
     nazionalita  TEXT,
+    sesso        TEXT CHECK (sesso IN ('M', 'F')),
+    paesi_terzi_ue BOOLEAN          NOT NULL DEFAULT FALSE,
     fascia_eta   fascia_eta,                    -- calcolata automaticamente da data_nascita
     created_at   TIMESTAMPTZ        NOT NULL DEFAULT NOW()
 );
+
+-- Allinea schema su database gia esistenti
+ALTER TABLE public.nuclei ADD COLUMN IF NOT EXISTS numero_nucleo_familiare TEXT;
+ALTER TABLE public.nuclei ADD COLUMN IF NOT EXISTS telefono TEXT;
+ALTER TABLE public.nuclei ADD COLUMN IF NOT EXISTS indirizzo TEXT;
+
+ALTER TABLE public.componenti ADD COLUMN IF NOT EXISTS sesso TEXT;
+ALTER TABLE public.componenti ADD COLUMN IF NOT EXISTS paesi_terzi_ue BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.componenti ADD COLUMN IF NOT EXISTS codice_fiscale TEXT;
+DO $$ BEGIN
+    ALTER TABLE public.componenti
+    ADD CONSTRAINT componenti_sesso_check CHECK (sesso IN ('M', 'F'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Tessere
 CREATE TABLE IF NOT EXISTS public.tessere (
@@ -138,6 +157,7 @@ CREATE INDEX IF NOT EXISTS idx_nuclei_archiviato     ON public.nuclei(archiviato
 
 CREATE INDEX IF NOT EXISTS idx_componenti_nucleo     ON public.componenti(nucleo_id);
 CREATE INDEX IF NOT EXISTS idx_componenti_cognome    ON public.componenti(cognome);
+CREATE INDEX IF NOT EXISTS idx_componenti_codice_fiscale ON public.componenti(codice_fiscale);
 
 CREATE INDEX IF NOT EXISTS idx_tessere_nucleo        ON public.tessere(nucleo_id);
 CREATE INDEX IF NOT EXISTS idx_tessere_numero        ON public.tessere(numero);

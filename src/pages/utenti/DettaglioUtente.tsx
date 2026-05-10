@@ -25,8 +25,22 @@ const STATI: { value: StatoNucleo; label: string }[] = [
   { value: 'rosso', label: 'Sospeso' },
 ]
 
-type PersonaForm = { nome: string; cognome: string; data_nascita: string; nazionalita: string }
-const PERSONA_VUOTA: PersonaForm = { nome: '', cognome: '', data_nascita: '', nazionalita: '' }
+type PersonaForm = {
+  nome: string
+  cognome: string
+  data_nascita: string
+  nazionalita: string
+  sesso: 'M' | 'F' | ''
+  paesi_terzi_ue: boolean
+}
+const PERSONA_VUOTA: PersonaForm = {
+  nome: '',
+  cognome: '',
+  data_nascita: '',
+  nazionalita: '',
+  sesso: '',
+  paesi_terzi_ue: false,
+}
 
 function calcFascia(dataNascita: string): '0-17' | '18-29' | '30-64' | '65+' | null {
   if (!dataNascita) return null
@@ -67,6 +81,8 @@ function parseExcel(text: string): PersonaForm[] {
     nome:         r[1] ?? '',
     data_nascita: r[2] ? normalizzaData(r[2]) : '',
     nazionalita:  r[3] ?? '',
+    sesso: '',
+    paesi_terzi_ue: false,
   }))
 }
 
@@ -104,7 +120,27 @@ function SezionePersona({
           label="Nazionalita"
           sx={{ flex: 1, minWidth: 160 }}
         />
+        <TextField
+          select
+          label="Sesso"
+          value={value.sesso}
+          onChange={(e) => onChange({ ...value, sesso: e.target.value as PersonaForm['sesso'] })}
+          sx={{ width: { xs: '100%', md: 180 } }}
+        >
+          <MenuItem value="">Non specificato</MenuItem>
+          <MenuItem value="M">Maschio</MenuItem>
+          <MenuItem value="F">Femmina</MenuItem>
+        </TextField>
       </Stack>
+      <FormControlLabel
+        control={(
+          <Switch
+            checked={value.paesi_terzi_ue}
+            onChange={(e) => onChange({ ...value, paesi_terzi_ue: e.target.checked })}
+          />
+        )}
+        label="Paesi terzi UE (extra-UE)"
+      />
     </Box>
   )
 }
@@ -120,7 +156,10 @@ export default function DettaglioUtente() {
   const [successMsg, setSuccessMsg] = useState('')
 
   // Stato form nucleo
-  const [cf, setCf] = useState('')
+  const [numeroNucleoFamiliare, setNumeroNucleoFamiliare] = useState('')
+  const [cfTesserato, setCfTesserato] = useState('')
+  const [telefono, setTelefono] = useState('')
+  const [indirizzo, setIndirizzo] = useState('')
   const [zona, setZona] = useState('')
   const [stato, setStato] = useState<StatoNucleo>('verde')
 
@@ -166,7 +205,9 @@ export default function DettaglioUtente() {
       }
 
       // Popola stato form
-      setCf(nucl.codice_fiscale ?? '')
+      setNumeroNucleoFamiliare(nucl.numero_nucleo_familiare ?? '')
+      setTelefono(nucl.telefono ?? '')
+      setIndirizzo(nucl.indirizzo ?? '')
       setZona(nucl.zona ?? '')
       setStato(nucl.stato ?? 'verde')
 
@@ -180,6 +221,8 @@ export default function DettaglioUtente() {
           cognome: capoFound.cognome ?? '',
           data_nascita: capoFound.data_nascita ?? '',
           nazionalita: capoFound.nazionalita ?? '',
+          sesso: capoFound.sesso ?? '',
+          paesi_terzi_ue: Boolean(capoFound.paesi_terzi_ue),
         })
       }
       setStessoSoggetto(!titolFound)
@@ -189,14 +232,30 @@ export default function DettaglioUtente() {
           cognome: titolFound.cognome ?? '',
           data_nascita: titolFound.data_nascita ?? '',
           nazionalita: titolFound.nazionalita ?? '',
+          sesso: titolFound.sesso ?? '',
+          paesi_terzi_ue: Boolean(titolFound.paesi_terzi_ue),
         })
       }
+
+      const riferimentoCf = titolFound ?? capoFound
+      setCfTesserato(riferimentoCf?.codice_fiscale ?? nucl.codice_fiscale ?? '')
+
       setComponentiExtra(
-        extrasFound.map((c: {nome: string; cognome: string; data_nascita: string | null; nazionalita: string | null}) => ({
+        extrasFound.map((c: {
+          nome: string
+          cognome: string
+          data_nascita: string | null
+          nazionalita: string | null
+          sesso: 'M' | 'F' | null
+          paesi_terzi_ue: boolean
+          codice_fiscale?: string | null
+        }) => ({
           nome: c.nome ?? '',
           cognome: c.cognome ?? '',
           data_nascita: c.data_nascita ?? '',
           nazionalita: c.nazionalita ?? '',
+          sesso: c.sesso ?? '',
+          paesi_terzi_ue: Boolean(c.paesi_terzi_ue),
         }))
       )
 
@@ -233,7 +292,10 @@ export default function DettaglioUtente() {
     const { error: nuclErr } = await supabase
       .from('nuclei')
       .update({
-        codice_fiscale: cf.trim() || null,
+        numero_nucleo_familiare: numeroNucleoFamiliare.trim() || null,
+        codice_fiscale: null,
+        telefono: telefono.trim() || null,
+        indirizzo: indirizzo.trim() || null,
         zona,
         stato,
         updated_at: new Date().toISOString(),
@@ -254,14 +316,19 @@ export default function DettaglioUtente() {
       return
     }
 
+    const cfNorm = cfTesserato.trim().toUpperCase() || null
+
     const toInsert = [
       {
         nucleo_id: id,
         ruolo: 'capofamiglia',
         nome: capofamiglia.nome,
         cognome: capofamiglia.cognome,
+        codice_fiscale: stessoSoggetto ? cfNorm : null,
         data_nascita: capofamiglia.data_nascita || null,
         nazionalita: capofamiglia.nazionalita || null,
+        sesso: capofamiglia.sesso || null,
+        paesi_terzi_ue: capofamiglia.paesi_terzi_ue,
         fascia_eta: calcFascia(capofamiglia.data_nascita),
       },
     ]
@@ -271,8 +338,11 @@ export default function DettaglioUtente() {
         ruolo: 'titolare',
         nome: titolare.nome,
         cognome: titolare.cognome,
+        codice_fiscale: cfNorm,
         data_nascita: titolare.data_nascita || null,
         nazionalita: titolare.nazionalita || null,
+        sesso: titolare.sesso || null,
+        paesi_terzi_ue: titolare.paesi_terzi_ue,
         fascia_eta: calcFascia(titolare.data_nascita),
       })
     }
@@ -283,8 +353,11 @@ export default function DettaglioUtente() {
           ruolo: 'componente',
           nome: c.nome,
           cognome: c.cognome,
+          codice_fiscale: null,
           data_nascita: c.data_nascita || null,
           nazionalita: c.nazionalita || null,
+          sesso: c.sesso || null,
+          paesi_terzi_ue: c.paesi_terzi_ue,
           fascia_eta: calcFascia(c.data_nascita),
         })
       }
@@ -401,9 +474,15 @@ export default function DettaglioUtente() {
           <Stack sx={{ gap: 2.2 }}>
             <Stack direction="row" sx={{ gap: 2.2, flexWrap: 'wrap' }}>
               <TextField
-                label="Codice Fiscale del nucleo"
-                value={cf}
-                onChange={(e) => setCf(e.target.value.toUpperCase())}
+                label="Numero nucleo familiare"
+                value={numeroNucleoFamiliare}
+                onChange={(e) => setNumeroNucleoFamiliare(e.target.value)}
+                sx={{ flex: 1, minWidth: 220 }}
+              />
+              <TextField
+                label="Codice Fiscale del tesserato"
+                value={cfTesserato}
+                onChange={(e) => setCfTesserato(e.target.value.toUpperCase())}
                 slotProps={{ htmlInput: { maxLength: 16 } }}
                 sx={{ flex: 1, minWidth: 220 }}
               />
@@ -428,6 +507,20 @@ export default function DettaglioUtente() {
                 onChange={(e) => setTessNumero(e.target.value)}
                 sx={{ flex: 1, minWidth: 220 }}
               />
+              <TextField
+                label="Telefono"
+                value={telefono}
+                onChange={(e) => setTelefono(e.target.value)}
+                sx={{ flex: 1, minWidth: 220 }}
+              />
+              <TextField
+                label="Indirizzo"
+                value={indirizzo}
+                onChange={(e) => setIndirizzo(e.target.value)}
+                sx={{ flex: 1, minWidth: 220 }}
+              />
+            </Stack>
+            <Stack direction="row" sx={{ gap: 2.2, flexWrap: 'wrap' }}>
               <TextField
                 label="Scadenza precedente" type="date" value={tessScadVecchia}
                 onChange={(e) => setTessScadVecchia(e.target.value)}

@@ -35,6 +35,7 @@ type NucleoRaw = {
     ruolo: string
     nome: string
     cognome: string
+    codice_fiscale: string | null
     data_nascita: string | null
   }>
   tessere: Array<{
@@ -123,7 +124,7 @@ function mapNucleoToRow(
 
   return {
     nucleoId: nucleo.id,
-    codiceFiscale: nucleo.codice_fiscale,
+    codiceFiscale: principale?.codice_fiscale ?? nucleo.codice_fiscale,
     zona: nucleo.zona,
     stato: nucleo.stato,
     cognomeTesserato: principale?.cognome?.trim() ?? '—',
@@ -185,7 +186,7 @@ export function useDistribuzione() {
     const [nucleiResult, distResult] = await Promise.all([
       supabase
         .from('nuclei')
-        .select('id, codice_fiscale, zona, stato, componenti(id, ruolo, nome, cognome, data_nascita), tessere(id, numero, scadenza_nuova, created_at)')
+        .select('id, codice_fiscale, zona, stato, componenti(id, ruolo, nome, cognome, codice_fiscale, data_nascita), tessere(id, numero, scadenza_nuova, created_at)')
         .eq('archiviato', false)
         .eq('zona', centro),
       supabase

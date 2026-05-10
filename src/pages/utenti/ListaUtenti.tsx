@@ -22,6 +22,7 @@ import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined'
 import BadgeIcon from '@mui/icons-material/Badge'
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined'
 import CreditCardOutlinedIcon from '@mui/icons-material/CreditCardOutlined'
+import DeleteForeverIcon from '@mui/icons-material/DeleteForever'
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
 import { useNavigate } from 'react-router-dom'
@@ -43,13 +44,19 @@ type Componente = {
   ruolo: string
   nome: string
   cognome: string
+  codice_fiscale: string | null
   data_nascita: string | null
   nazionalita: string | null
+  sesso: 'M' | 'F' | null
+  paesi_terzi_ue: boolean
 }
 type Tessera    = { id: string; numero: string; scadenza_nuova: string | null }
 type Nucleo = {
   id: string
+  numero_nucleo_familiare: string | null
   codice_fiscale: string | null
+  telefono: string | null
+  indirizzo: string | null
   zona: string
   stato: StatoNucleo
   archiviato: boolean
@@ -70,12 +77,36 @@ type ImportOutcome = {
   dettagli: string[]
 }
 
-function getNomePrincipale(componenti: Componente[]) {
-  const c =
+function getTesserato(componenti: Componente[]) {
+  return componenti.find((c) => c.ruolo === 'titolare') ??
     componenti.find((c) => c.ruolo === 'capofamiglia') ??
-    componenti.find((c) => c.ruolo === 'titolare') ??
     componenti[0]
+}
+
+function getNomePrincipale(componenti: Componente[]) {
+  const c = getTesserato(componenti)
   return c ? `${c.cognome} ${c.nome}`.trim() : '—'
+}
+
+function getCodiceFiscaleTesserato(nucleo: Nucleo): string | null {
+  return getTesserato(nucleo.componenti)?.codice_fiscale ?? null
+}
+
+function compareByTesseratoNome(a: Nucleo, b: Nucleo) {
+  const aTesserato = getTesserato(a.componenti)
+  const bTesserato = getTesserato(b.componenti)
+
+  const aCognome = (aTesserato?.cognome ?? '').trim()
+  const bCognome = (bTesserato?.cognome ?? '').trim()
+  const cognomeCmp = aCognome.localeCompare(bCognome, 'it', { sensitivity: 'base' })
+  if (cognomeCmp !== 0) return cognomeCmp
+
+  const aNome = (aTesserato?.nome ?? '').trim()
+  const bNome = (bTesserato?.nome ?? '').trim()
+  const nomeCmp = aNome.localeCompare(bNome, 'it', { sensitivity: 'base' })
+  if (nomeCmp !== 0) return nomeCmp
+
+  return a.id.localeCompare(b.id)
 }
 
 function formatDate(value: string | null | undefined) {
@@ -93,11 +124,6 @@ function getScadenzaTone(value: string | null | undefined) {
   if (diff <= 0) return 'error.main'
   if (diff <= 1000 * 60 * 60 * 24 * 7) return 'warning.main'
   return 'text.primary'
-}
-
-function initialsFromName(fullName: string) {
-  const parts = fullName.split(' ').filter(Boolean)
-  return `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}`.toUpperCase()
 }
 
 function renderInlineStatus(stato: StatoNucleo) {
@@ -149,7 +175,7 @@ function isCapofamigliaTitolare(componenti: Componente[]) {
 
 function matchSearch(n: Nucleo, q: string) {
   const low = q.toLowerCase()
-  if (n.codice_fiscale?.toLowerCase().includes(low)) return true
+  if (getCodiceFiscaleTesserato(n)?.toLowerCase().includes(low)) return true
   if (n.tessere.some((t) => t.numero.toLowerCase().includes(low))) return true
   if (n.componenti.some((c) =>
     c.cognome.toLowerCase().includes(low) || c.nome.toLowerCase().includes(low)
@@ -183,6 +209,9 @@ export default function ListaUtenti() {
   const [importIssues, setImportIssues] = useState<string[]>([])
   const [importSubmitting, setImportSubmitting] = useState(false)
   const [importOutcome, setImportOutcome] = useState<ImportOutcome | null>(null)
+  const [eliminaDatiOpen, setEliminaDatiOpen] = useState(false)
+  const [eliminaDatiConfirmText, setEliminaDatiConfirmText] = useState('')
+  const [eliminaDatiLoading, setEliminaDatiLoading] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -199,12 +228,14 @@ export default function ListaUtenti() {
 
   useEffect(() => { load() }, [load])
 
-  const filtered = nuclei.filter((n) => {
-    if (zonaFilter !== 'Tutte' && n.zona !== zonaFilter) return false
-    if (statoFilter && n.stato !== statoFilter) return false
-    if (search.trim() && !matchSearch(n, search.trim())) return false
-    return true
-  })
+  const filtered = nuclei
+    .filter((n) => {
+      if (zonaFilter !== 'Tutte' && n.zona !== zonaFilter) return false
+      if (statoFilter && n.stato !== statoFilter) return false
+      if (search.trim() && !matchSearch(n, search.trim())) return false
+      return true
+    })
+    .sort(compareByTesseratoNome)
 
   useEffect(() => {
     setPage(1)
@@ -369,7 +400,7 @@ export default function ListaUtenti() {
 
     if (cfValues.length > 0) {
       const { data } = await supabase
-        .from('nuclei')
+        .from('componenti')
         .select('codice_fiscale')
         .in('codice_fiscale', cfValues)
       data?.forEach((row) => {
@@ -391,7 +422,7 @@ export default function ListaUtenti() {
     const seenTessInFile = new Set<string>()
 
     for (const nucleo of validImportNuclei) {
-      const capofamiglia = nucleo.persone[0]
+      const capofamiglia = nucleo.persone.find((p) => p.isCapofamiglia) ?? nucleo.persone[0]
       if (!nucleo.zona) {
         saltati++
         dettagli.push(`Saltato blocco riga ${nucleo.sourceRowStart}: zona non riconosciuta.`)
@@ -415,7 +446,9 @@ export default function ListaUtenti() {
       const { data: createdNucleo, error: nucleoErr } = await supabase
         .from('nuclei')
         .insert({
-          codice_fiscale: cf || null,
+          numero_nucleo_familiare: nucleo.numeroNucleoFamiliare,
+          telefono: nucleo.telefono,
+          indirizzo: nucleo.indirizzo,
           zona: nucleo.zona,
           stato: 'verde',
           archiviato: false,
@@ -431,13 +464,16 @@ export default function ListaUtenti() {
 
       const componentiToInsert = nucleo.persone
         .filter((p) => p.cognome || p.nome)
-        .map((p, idx) => ({
+        .map((p) => ({
           nucleo_id: createdNucleo.id,
-          ruolo: idx === 0 ? 'capofamiglia' : 'componente',
+          ruolo: p.isCapofamiglia ? 'capofamiglia' : (p.isTesserato ? 'titolare' : 'componente'),
           nome: p.nome,
           cognome: p.cognome,
+          codice_fiscale: p.isTesserato ? (cf || null) : null,
           data_nascita: p.dataNascita,
           nazionalita: p.nazionalita,
+          sesso: p.sesso,
+          paesi_terzi_ue: p.paesiTerziUe,
           fascia_eta: calcFascia(p.dataNascita),
         }))
 
@@ -490,6 +526,51 @@ export default function ListaUtenti() {
   const handleAzioneRinnovo = () => {
     closeAzioniMenu()
     setRinnovoOpen(true)
+  }
+
+  const handleAzioneEliminaDati = () => {
+    closeAzioniMenu()
+    setEliminaDatiConfirmText('')
+    setEliminaDatiOpen(true)
+  }
+
+  const handleEliminaDati = async () => {
+    if (eliminaDatiConfirmText.trim().toLowerCase() !== 'elimina') {
+      setError('Per confermare la cancellazione inserisci esattamente "elimina".')
+      return
+    }
+
+    setEliminaDatiLoading(true)
+    setError('')
+
+    // Prima elimina distribuzioni (FK RESTRICT), poi nuclei. Tessere e componenti sono in CASCADE.
+    const { error: distErr } = await supabase
+      .from('distribuzioni')
+      .delete()
+      .not('id', 'is', null)
+
+    if (distErr) {
+      setEliminaDatiLoading(false)
+      setError(`Errore eliminazione distribuzioni: ${distErr.message}`)
+      return
+    }
+
+    const { error: nucleiErr } = await supabase
+      .from('nuclei')
+      .delete()
+      .not('id', 'is', null)
+
+    setEliminaDatiLoading(false)
+
+    if (nucleiErr) {
+      setError(`Errore eliminazione nuclei: ${nucleiErr.message}`)
+      return
+    }
+
+    setEliminaDatiOpen(false)
+    setEliminaDatiConfirmText('')
+    setSuccessMsg('Tutti i nuclei e i dati relazionati sono stati eliminati dal database.')
+    load()
   }
 
   const statoMenuCurrent = statoMenu
@@ -701,7 +782,7 @@ export default function ListaUtenti() {
                             fontWeight: 800,
                           }}
                         >
-                          {initialsFromName(nome)}
+                          {n.numero_nucleo_familiare?.trim() || 'nd'}
                         </Box>
                         <Box>
                           <Typography sx={{ fontWeight: 700, lineHeight: 1.2 }}>{nome}</Typography>
@@ -757,7 +838,7 @@ export default function ListaUtenti() {
                         </Box>
                       </Stack>
                     </TableCell>
-                    <TableCell>{n.codice_fiscale ?? '—'}</TableCell>
+                    <TableCell>{getCodiceFiscaleTesserato(n) ?? '—'}</TableCell>
                     <TableCell>{n.zona}</TableCell>
                     <TableCell>{n.tessere[0]?.numero ?? '—'}</TableCell>
                     <TableCell sx={{ color: getScadenzaTone(scadenza), fontWeight: 700 }}>
@@ -857,6 +938,12 @@ export default function ListaUtenti() {
             <Typography variant="body2">Rinnovo Annuale</Typography>
           </Stack>
         </MenuItem>
+        <MenuItem onClick={handleAzioneEliminaDati}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <DeleteForeverIcon fontSize="small" color="error" />
+            <Typography variant="body2" color="error">Elimina dati</Typography>
+          </Stack>
+        </MenuItem>
       </Menu>
 
       <Menu
@@ -919,6 +1006,43 @@ export default function ListaUtenti() {
         </DialogActions>
       </Dialog>
 
+      {/* Dialog eliminazione completa dati nuclei */}
+      <Dialog
+        open={eliminaDatiOpen}
+        onClose={() => !eliminaDatiLoading && setEliminaDatiOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle color="error">Elimina tutti i dati nuclei</DialogTitle>
+        <DialogContent>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            Operazione irreversibile: verranno eliminati tutti i nuclei familiari e tutti i dati relazionati (componenti, tessere, distribuzioni).
+          </Alert>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.2 }}>
+            Per confermare, scrivi <strong>elimina</strong> nel campo qui sotto.
+          </Typography>
+          <TextField
+            fullWidth
+            label="Conferma eliminazione"
+            placeholder="elimina"
+            value={eliminaDatiConfirmText}
+            onChange={(e) => setEliminaDatiConfirmText(e.target.value)}
+            disabled={eliminaDatiLoading}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEliminaDatiOpen(false)} disabled={eliminaDatiLoading}>Annulla</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleEliminaDati}
+            disabled={eliminaDatiLoading || eliminaDatiConfirmText.trim().toLowerCase() !== 'elimina'}
+          >
+            {eliminaDatiLoading ? <CircularProgress size={20} color="inherit" /> : 'Elimina definitivamente'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Dialog import da file Excel */}
       <Dialog
         open={importOpen}
@@ -966,22 +1090,29 @@ export default function ListaUtenti() {
                       <TableCell sx={{ fontWeight: 700 }}>Righe</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>Zona</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>Capofamiglia</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Tesserato</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>Componenti</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>Tessera</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>Codice Fiscale</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {importNuclei.slice(0, 50).map((n) => (
-                      <TableRow key={`${n.sourceRowStart}-${n.sourceRowEnd}`}>
-                        <TableCell>{`${n.sourceRowStart}-${n.sourceRowEnd}`}</TableCell>
-                        <TableCell>{n.zona ?? '—'}</TableCell>
-                        <TableCell>{`${n.persone[0]?.cognome ?? ''} ${n.persone[0]?.nome ?? ''}`.trim() || '—'}</TableCell>
-                        <TableCell>{n.persone.length}</TableCell>
-                        <TableCell>{n.tesseraNumero ?? '—'}</TableCell>
-                        <TableCell>{n.codiceFiscale ?? '—'}</TableCell>
-                      </TableRow>
-                    ))}
+                    {importNuclei.slice(0, 50).map((n) => {
+                      const capofamiglia = n.persone.find((p) => p.isCapofamiglia) ?? n.persone[0]
+                      const tesserato = n.persone.find((p) => p.isTesserato) ?? capofamiglia
+
+                      return (
+                        <TableRow key={`${n.sourceRowStart}-${n.sourceRowEnd}`}>
+                          <TableCell>{`${n.sourceRowStart}-${n.sourceRowEnd}`}</TableCell>
+                          <TableCell>{n.zona ?? '—'}</TableCell>
+                          <TableCell>{`${capofamiglia?.cognome ?? ''} ${capofamiglia?.nome ?? ''}`.trim() || '—'}</TableCell>
+                          <TableCell>{`${tesserato?.cognome ?? ''} ${tesserato?.nome ?? ''}`.trim() || '—'}</TableCell>
+                          <TableCell>{n.persone.length}</TableCell>
+                          <TableCell>{n.tesseraNumero ?? '—'}</TableCell>
+                          <TableCell>{n.codiceFiscale ?? '—'}</TableCell>
+                        </TableRow>
+                      )
+                    })}
                   </TableBody>
                 </Table>
               </TableContainer>
